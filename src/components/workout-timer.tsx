@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useFormState } from "react-dom";
+import { useState, useEffect, useRef, useCallback, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { logWorkout } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +35,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  const [formState, formAction] = useFormState(logWorkout, { message: "", type: "" });
+  const [formState, formAction] = useActionState(logWorkout, { message: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
