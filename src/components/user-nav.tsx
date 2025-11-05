@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User as UserIcon } from 'lucide-react';
+import { ThemeToggle } from './theme-toggle';
 
 export function UserNav() {
   const { user, signOut } = useAuth();
@@ -51,6 +52,7 @@ export function UserNav() {
             <UserIcon className="mr-2 h-4 w-4" />
             <span>Perfil</span>
           </DropdownMenuItem>
+          <ThemeToggle />
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>
