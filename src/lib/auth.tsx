@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -15,6 +16,7 @@ import {
   signOut as firebaseSignOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -25,6 +27,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const ALLOWED_DOMAIN = "poli.digital";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const auth = useFirebaseAuth();
@@ -32,11 +36,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const syncUser = async () => {
       setLoading(true);
       if (firebaseUser && firestore) {
+        // Check domain again in case user was already logged in
+        if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+            toast({
+                title: 'Acesso Negado',
+                description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
+                variant: 'destructive',
+            });
+            await firebaseSignOut(auth);
+            setAppUser(null);
+            setLoading(false);
+            return;
+        }
+
         const userRef = doc(firestore, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
@@ -60,19 +78,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     syncUser();
-  }, [firebaseUser, firestore]);
+  }, [firebaseUser, firestore, auth, toast]);
 
   const signInWithGoogle = async () => {
     if (!auth) return;
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle the rest
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        toast({
+            title: 'Domínio de E-mail Não Autorizado',
+            description: `Por favor, utilize uma conta com o domínio @${ALLOWED_DOMAIN}.`,
+            variant: 'destructive',
+        });
+        await firebaseSignOut(auth);
+        setLoading(false);
+        return;
+      }
+      // onAuthStateChanged will handle user creation and redirection
     } catch (error: any) {
-      // Gracefully handle the case where the user closes the popup
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
+         toast({
+            title: 'Erro de Login',
+            description: 'Ocorreu um erro ao tentar fazer login. Por favor, tente novamente.',
+            variant: 'destructive',
+        });
       }
       setLoading(false);
     }
