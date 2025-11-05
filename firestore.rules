@@ -1,0 +1,72 @@
+/**
+ * @file Firestore Security Rules for Poli Fit Tracker
+ * @core_philosophy This ruleset enforces a strict user-ownership model. Each user has full control over their profile, workouts, and associated photos. Only the authenticated user can read or write their own data.
+ * @data_structure The data is structured hierarchically under `/users/{userId}`, with workout sessions stored in a `workouts` subcollection and photo verifications in a `photos` subcollection under each workout.
+ * @key_security_decisions User listing is explicitly denied. All data is private to the user, and no shared access is permitted in this version.
+ * @denormalization This ruleset uses path-based authorization, so it denormalizes critical authorization data (userId, workoutId) onto the documents themselves, avoiding expensive `get()` operations in the security rules.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with matching UID can create their own profile.
+     * @allow (get, update, delete) User with matching UID can read, update, and delete their own profile.
+     * @deny (create) User cannot create a profile with a different UID.
+     * @deny (get, update, delete) User cannot read, update, or delete another user's profile.
+     * @principle Enforces document ownership; users can only manage their own profiles. Validates relational integrity by ensuring the userId in the path matches the document's id field.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to workout documents within a user's profile.
+     * @path /users/{userId}/workouts/{workoutId}
+     * @allow (create) User with matching UID can create workout documents under their profile. The workout's userId field must match the user's UID.
+     * @allow (get, list, update, delete) User with matching UID can read, list, update, and delete their own workout documents.
+     * @deny (create) User cannot create workout documents for other users.
+     * @deny (get, list, update, delete) User cannot read, list, update, or delete workout documents of other users.
+     * @principle Enforces document ownership; users can only manage their own workout documents.
+     */
+    match /users/{userId}/workouts/{workoutId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(userId) && isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to photo verification documents within a user's workout.
+     * @path /users/{userId}/workouts/{workoutId}/photos/{photoId}
+     * @allow (create) User with matching UID can create photo verification documents under their workouts.
+     * @allow (get, list, update, delete) User with matching UID can read, list, update, and delete their own photo verification documents.
+     * @deny (create) User cannot create photo verification documents for other users' workouts.
+     * @deny (get, list, update, delete) User cannot read, list, update, or delete photo verification documents of other users.
+     * @principle Enforces document ownership; users can only manage their own photo verification documents.
+     */
+    match /users/{userId}/workouts/{workoutId}/photos/{photoId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+  }
+}

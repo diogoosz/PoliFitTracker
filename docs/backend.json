@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Poli Fit Tracker application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "googleId": {
+          "type": "string",
+          "description": "The user's Google ID, obtained from Google authentication."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        }
+      },
+      "required": [
+        "id",
+        "googleId",
+        "email",
+        "name"
+      ]
+    },
+    "Workout": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Workout",
+      "type": "object",
+      "description": "Represents a workout session logged by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the workout entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Workout)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start time of the workout.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end time of the workout.",
+          "format": "date-time"
+        },
+        "duration": {
+          "type": "number",
+          "description": "The duration of the workout in minutes."
+        },
+        "photoVerification1Id": {
+          "type": "string",
+          "description": "Reference to PhotoVerification. (Relationship: Workout 1:1 PhotoVerification1)"
+        },
+        "photoVerification2Id": {
+          "type": "string",
+          "description": "Reference to PhotoVerification. (Relationship: Workout 1:1 PhotoVerification2)"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "startTime",
+        "endTime",
+        "duration",
+        "photoVerification1Id",
+        "photoVerification2Id"
+      ]
+    },
+    "PhotoVerification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PhotoVerification",
+      "type": "object",
+      "description": "Represents a photo verification taken during a workout.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the photo verification entity."
+        },
+        "workoutId": {
+          "type": "string",
+          "description": "Reference to Workout. (Relationship: Workout 1:N PhotoVerification)"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image taken for verification.",
+          "format": "uri"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The time the photo was taken.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "workoutId",
+        "imageUrl",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. The userId parameter is the Firebase Authentication UID. ",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/workouts/{workoutId}",
+        "definition": {
+          "entityName": "Workout",
+          "schema": {
+            "$ref": "#/backend/entities/Workout"
+          },
+          "description": "Stores workout data for a specific user. This structure establishes clear ownership. Includes denormalized 'userId' to avoid parent `get()` calls in security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user who owns the workout."
+            },
+            {
+              "name": "workoutId",
+              "description": "The unique identifier for the workout."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/workouts/{workoutId}/photos/{photoId}",
+        "definition": {
+          "entityName": "PhotoVerification",
+          "schema": {
+            "$ref": "#/backend/entities/PhotoVerification"
+          },
+          "description": "Stores photo verifications for a specific workout. This structure ensures that photos are associated with their respective workouts and users. Includes denormalized 'userId' and 'workoutId' to avoid parent `get()` calls in security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user who owns the workout and photo."
+            },
+            {
+              "name": "workoutId",
+              "description": "The unique identifier for the workout the photo belongs to."
+            },
+            {
+              "name": "photoId",
+              "description": "The unique identifier for the photo verification."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to ensure security, scalability, and debuggability, following the principles of Authorization Independence, Clarity of Intent, DBAC, and QAPs. User data is stored in `/users/{userId}`. Workouts are stored as subcollections under each user (`/users/{userId}/workouts/{workoutId}`) to establish ownership and facilitate querying workouts for a specific user. Photo verifications are also stored as subcollections under the workout (`/users/{userId}/workouts/{workoutId}/photos/{photoId}`), making it straightforward to retrieve photos associated with a specific workout. This design uses path-based ownership for user-owned data (Users 1:N Workouts 1:N PhotoVerifications). Authorization Independence is achieved because access control is determined by the path (user ID) without requiring `get()` calls to parent documents. This supports QAPs by allowing secure list operations within each user's workouts and photos. The admin dashboard can access all users and their data, requiring secure rules to restrict access to admin roles only."
+  }
+}
