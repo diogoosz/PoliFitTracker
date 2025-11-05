@@ -33,67 +33,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useFirebaseAuth();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false); // New state for syncing logic
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
-
-  const loading = isFirebaseUserLoading || isSyncing;
-
+  
   useEffect(() => {
+    // This effect's job is to sync the firebaseUser to our app's user profile in Firestore
     const syncUser = async () => {
-      if (!firebaseUser) {
-        setAppUser(null);
-        setIsSyncing(false);
-        return;
-      }
-      
-      setIsSyncing(true);
-
-      // Check for allowed domain
-      if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
-        toast({
+      // If firebaseUser is present, we have a session.
+      if (firebaseUser) {
+        // Domain check
+        if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+          toast({
             title: 'Acesso Negado',
             description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
             variant: 'destructive',
-        });
-        await firebaseSignOut(auth);
-        setAppUser(null);
-        setIsSyncing(false);
-        return;
-      }
-      
-      // Sync with firestore
-      if (firestore) {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          setAppUser(userSnap.data() as AppUser);
-        } else {
-          // Create user profile if it doesn't exist
-          const newUser: AppUser = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Usuário',
-            email: firebaseUser.email || '',
-            avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/40/40`,
-            isAdmin: false, // Default to not admin
-          };
-          await setDoc(userRef, newUser);
-          setAppUser(newUser);
+          });
+          await firebaseSignOut(auth); // Sign out the invalid user
+          setAppUser(null);
+          setLoading(false); // Stop loading, we have a result (no user)
+          return;
         }
+
+        // User is valid, get or create their profile from Firestore
+        if (firestore) {
+          const userRef = doc(firestore, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            setAppUser(userSnap.data() as AppUser);
+          } else {
+            const newUser: AppUser = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || 'Usuário',
+              email: firebaseUser.email || '',
+              avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/40/40`,
+              isAdmin: false,
+            };
+            await setDoc(userRef, newUser);
+            setAppUser(newUser);
+          }
+        }
+        setLoading(false); // Stop loading, we have a user
+      } else if (!isFirebaseUserLoading) {
+        // If firebaseUser is null AND the initial auth check is complete
+        setAppUser(null);
+        setLoading(false); // Stop loading, we know there's no user
       }
-      setIsSyncing(false);
     };
 
     syncUser();
-  }, [firebaseUser, firestore, auth, toast]);
+  }, [firebaseUser, isFirebaseUserLoading, firestore, auth, toast]);
 
   const signInWithGoogle = async () => {
     if (!auth) return;
-    setIsSyncing(true);
+    setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged in the useEffect will handle everything else
+      // The useEffect above will handle the rest once firebaseUser changes.
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
@@ -103,8 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: 'destructive',
         });
       }
-      // In case of any error or popup close, stop loading.
-      setIsSyncing(false); 
+      setLoading(false); 
     }
   };
 
