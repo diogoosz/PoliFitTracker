@@ -168,7 +168,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
         <Timer className="h-6 w-6 text-muted-foreground" />
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center space-y-6 pt-6">
-        <div className="text-6xl font-bold font-mono text-primary tabular-nums tracking-tighter">
+        <div className="text-5xl sm:text-6xl font-bold font-mono text-primary tabular-nums tracking-tighter">
           {formatTime(elapsedSeconds)}
         </div>
         
