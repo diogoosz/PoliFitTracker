@@ -1,14 +1,16 @@
+
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, CheckCircle, Loader2 } from "lucide-react";
 import type { Workout } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { isSameMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase';
 
 export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
@@ -50,6 +52,7 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
           </div>
         ) : (
           <Calendar
+            locale={ptBR}
             mode="multiple"
             selected={workoutDates}
             onMonthChange={setCurrentMonth}
