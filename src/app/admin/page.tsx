@@ -3,37 +3,41 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { USERS, WORKOUTS } from '@/lib/data';
 import type { User, Workout } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { Eye, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 
-interface WorkoutWithUser extends Workout {
-  user: User;
+interface UserWithWorkouts extends User {
+  workouts: Workout[];
 }
 
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const workoutsWithUsers: WorkoutWithUser[] = useMemo(() => {
-    return WORKOUTS.map(workout => ({
-      ...workout,
-      user: USERS.find(user => user.id === workout.userId)!,
-    })).sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+  const usersWithWorkouts: UserWithWorkouts[] = useMemo(() => {
+    return USERS
+      .map(user => ({
+        ...user,
+        workouts: WORKOUTS
+          .filter(workout => workout.userId === user.id)
+          .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
+      }))
+      .filter(user => user.workouts.length > 0);
   }, []);
 
-  const filteredWorkouts = useMemo(() => {
-    return workoutsWithUsers.filter(workout =>
-      workout.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      workout.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = useMemo(() => {
+    return usersWithWorkouts.filter(user =>
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [workoutsWithUsers, searchTerm]);
+  }, [usersWithWorkouts, searchTerm]);
+
+  const getUserInitials = (name: string) => name.split(' ').map(n => n[0]).join('');
 
   return (
     <div className="container mx-auto">
@@ -46,8 +50,8 @@ export default function AdminPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> Todos os Treinos</CardTitle>
-                <CardDescription>Um registro de todas as sessões de treino enviadas.</CardDescription>
+                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> Usuários com Treinos</CardTitle>
+                <CardDescription>Visualize o histórico de treinos de cada usuário.</CardDescription>
               </div>
               <Input
                 placeholder="Buscar por nome ou email..."
@@ -58,61 +62,45 @@ export default function AdminPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead>Verificação</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredWorkouts.length > 0 ? (
-                  filteredWorkouts.map((workout) => (
-                    <TableRow key={workout.id}>
-                      <TableCell>
-                        <div className="font-medium">{workout.user.name}</div>
-                        <div className="text-sm text-muted-foreground">{workout.user.email}</div>
-                      </TableCell>
-                      <TableCell>{format(parseISO(workout.date), 'd MMM, yyyy', { locale: ptBR })}</TableCell>
-                      <TableCell>{Math.floor(workout.duration / 60)} min</TableCell>
-                      <TableCell>
-                         <Badge variant="default" className="bg-green-500 hover:bg-green-600">Verificado</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Dialog>
-                           <DialogTrigger asChild>
-                             <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Ver Fotos</Button>
-                           </DialogTrigger>
-                           <DialogContent>
-                             <DialogHeader>
-                               <DialogTitle>Fotos de Verificação para {workout.user.name}</DialogTitle>
-                               <DialogDescription>
-                                 {format(parseISO(workout.date), 'd \'de\' MMMM \'de\' yyyy', { locale: ptBR })} - {Math.floor(workout.duration / 60)} minutos
-                               </DialogDescription>
-                             </DialogHeader>
-                             <div className="grid grid-cols-2 gap-4 mt-4">
-                               <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
-                               <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
-                             </div>
-                           </DialogContent>
-                         </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      Nenhum resultado encontrado.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {filteredUsers.length > 0 ? (
+            <Accordion type="multiple" className="w-full">
+              {filteredUsers.map(user => (
+                <AccordionItem value={user.id} key={user.id}>
+                  <AccordionTrigger className="hover:bg-accent/50 px-4 rounded-md">
+                    <div className="flex items-center gap-4">
+                      <Avatar>
+                        <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
+                        <AvatarFallback>{getUserInitials(user.name)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-4 bg-muted/40">
+                    <h4 className="font-semibold mb-4">Histórico de Treinos ({user.workouts.length})</h4>
+                    <div className="space-y-6">
+                      {user.workouts.map(workout => (
+                        <div key={workout.id} className="p-4 border rounded-lg bg-background">
+                           <p className="font-medium">{format(parseISO(workout.date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                           <p className="text-sm text-muted-foreground mb-4">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
+                             <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
+                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+             <div className="h-24 text-center flex items-center justify-center">
+                <p>Nenhum resultado encontrado.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
