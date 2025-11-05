@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -7,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import type { User, Workout } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Users, Loader2 } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection, query, orderBy } from 'firebase/firestore';
+import { UserWorkoutCount } from '@/components/user-workout-count';
 
 interface UserWithWorkouts extends User {
   workouts: Workout[];
@@ -110,10 +112,11 @@ export default function AdminPage() {
                         <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
                         <AvatarFallback>{getUserInitials(user.name)}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex-1 text-left">
                         <div className="font-medium">{user.name}</div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
+                      <UserWorkoutCount userId={user.id} />
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 bg-muted/40">
@@ -133,3 +136,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
