@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import type { User as AppUser } from './types';
 import { useRouter } from 'next/navigation';
 import { 
@@ -12,10 +12,12 @@ import {
 import { 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signOut as firebaseSignOut 
+  signOut as firebaseSignOut,
+  getRedirectResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -37,52 +39,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
   
-  useEffect(() => {
-    // This effect's job is to sync the firebaseUser to our app's user profile in Firestore
-    const syncUser = async () => {
-      // If firebaseUser is present, we have a session.
-      if (firebaseUser) {
-        // Domain check
-        if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
-          toast({
-            title: 'Acesso Negado',
-            description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
-            variant: 'destructive',
-          });
-          await firebaseSignOut(auth); // Sign out the invalid user
-          setAppUser(null);
-          setLoading(false); // Stop loading, we have a result (no user)
-          return;
-        }
+  const handleUserSync = useCallback(async (userToSync: FirebaseUser) => {
+    // This is the core logic for syncing a Firebase user to a Firestore profile.
+    if (!userToSync.email) {
+      // This can happen briefly after login. If we don't have an email, we can't check the domain.
+      // We log this and depend on the effect to run again when the user object is fully populated.
+      console.log("Waiting for user object to populate with email...");
+      return;
+    }
 
-        // User is valid, get or create their profile from Firestore
-        if (firestore) {
-          const userRef = doc(firestore, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            setAppUser(userSnap.data() as AppUser);
-          } else {
-            const newUser: AppUser = {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || 'Usuário',
-              email: firebaseUser.email || '',
-              avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/40/40`,
-              isAdmin: false,
-            };
-            await setDoc(userRef, newUser);
-            setAppUser(newUser);
-          }
-        }
-        setLoading(false); // Stop loading, we have a user
-      } else if (!isFirebaseUserLoading) {
-        // If firebaseUser is null AND the initial auth check is complete
-        setAppUser(null);
-        setLoading(false); // Stop loading, we know there's no user
+    if (!userToSync.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      toast({
+        title: 'Acesso Negado',
+        description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
+        variant: 'destructive',
+      });
+      await firebaseSignOut(auth);
+      setAppUser(null);
+      setLoading(false);
+      return;
+    }
+
+    if (firestore) {
+      const userRef = doc(firestore, 'users', userToSync.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setAppUser(userSnap.data() as AppUser);
+      } else {
+        const newUser: AppUser = {
+          id: userToSync.uid,
+          name: userToSync.displayName || 'Usuário',
+          email: userToSync.email,
+          avatarUrl: userToSync.photoURL || `https://picsum.photos/seed/${userToSync.uid}/40/40`,
+          isAdmin: false,
+        };
+        await setDoc(userRef, newUser);
+        setAppUser(newUser);
       }
-    };
+    }
+    setLoading(false);
 
-    syncUser();
-  }, [firebaseUser, isFirebaseUserLoading, firestore, auth, toast]);
+  }, [auth, firestore, toast]);
+
+  useEffect(() => {
+    // This effect runs whenever the firebaseUser object changes.
+    if (firebaseUser) {
+      // User is authenticated with Firebase.
+      handleUserSync(firebaseUser);
+    } else if (!isFirebaseUserLoading) {
+      // No firebase user is logged in, and the initial check is complete.
+      setAppUser(null);
+      setLoading(false);
+    }
+    // isFirebaseUserLoading is critical here. We wait for Firebase to tell us it's done checking.
+  }, [firebaseUser, isFirebaseUserLoading, handleUserSync]);
+
 
   const signInWithGoogle = async () => {
     if (!auth) return;
@@ -90,16 +101,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // The useEffect above will handle the rest once firebaseUser changes.
+      // The useEffect above will handle the rest once firebaseUser state changes.
     } catch (error: any) {
+      // Only show a toast for actual errors, not for user closing the popup.
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
-         toast({
+        toast({
             title: 'Erro de Login',
             description: 'Ocorreu um erro ao tentar fazer login. Por favor, tente novamente.',
             variant: 'destructive',
         });
       }
+      // Critical: ensure loading is false if any error occurs
       setLoading(false); 
     }
   };
