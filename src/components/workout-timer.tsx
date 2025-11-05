@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Timer, Play, Square, Camera, Loader2 } from "lucide-react";
 import PhotoCaptureModal from "./photo-capture-modal";
+import { useAuth } from "@/lib/auth";
 
 const MIN_WORKOUT_SECONDS = 40 * 60;
 
@@ -24,6 +25,7 @@ const formatTime = (totalSeconds: number) => {
 const getRandomTime = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min);
 
 export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void }) {
+  const { user } = useAuth();
   const [status, setStatus] = useState<"idle" | "running" | "stopped">("idle");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
@@ -66,9 +68,9 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   useEffect(() => {
     if (status === "running") {
-      const now = Math.floor(Date.now() / 1000);
-      const prompt1 = getRandomTime(now + 60, now + (MIN_WORKOUT_SECONDS / 2) - 60); // between 1 min and 19 mins
-      const prompt2 = getRandomTime(now + (MIN_WORKOUT_SECONDS / 2), now + MIN_WORKOUT_SECONDS - 60); // between 20 mins and 39 mins
+      const now = Date.now();
+      const prompt1 = now + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
+      const prompt2 = now + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
       setPhotoPromptTimes([prompt1, prompt2]);
 
       intervalRef.current = setInterval(() => {
@@ -81,7 +83,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   useEffect(() => {
     if (status === 'running') {
-        const currentTime = Math.floor(Date.now() / 1000);
+        const currentTime = Date.now();
         if (photos[0] === null && currentTime >= photoPromptTimes[0]) {
             setPhotoPromptIndex(0);
             setIsModalOpen(true);
@@ -122,8 +124,19 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
       return;
     }
     
+    if (!user) {
+      toast({
+        title: "Usuário não encontrado",
+        description: "Você precisa estar logado para registrar um treino.",
+        variant: "destructive",
+      });
+      resetWorkout();
+      return;
+    }
+    
     setIsSubmitting(true);
     const formData = new FormData();
+    formData.append('userId', user.id);
     formData.append('duration', String(elapsedSeconds));
     formData.append('photo1', photos[0]);
     formData.append('photo2', photos[1]);
@@ -179,8 +192,16 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
         {status === "stopped" && (
            <div className="flex flex-col items-center gap-4">
-            <p className="text-muted-foreground">Enviando seu treino...</p>
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            {isSubmitting ? (
+              <>
+                <p className="text-muted-foreground">Enviando seu treino...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </>
+            ) : (
+              <Button size="lg" className="w-48" onClick={resetWorkout}>
+                 Novo Treino
+              </Button>
+            )}
           </div>
         )}
         

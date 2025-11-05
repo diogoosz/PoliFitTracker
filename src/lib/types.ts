@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export interface User {
   id: string;
   name: string;
@@ -9,8 +11,9 @@ export interface User {
 export interface Workout {
   id: string;
   userId: string;
-  date: string; // ISO string
+  startTime: Timestamp;
+  endTime: Timestamp;
   duration: number; // in seconds
   photo1Url: string;
-  photo2Url:string;
+  photo2Url: string;
 }

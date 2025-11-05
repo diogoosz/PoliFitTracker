@@ -6,36 +6,69 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { USERS, WORKOUTS } from '@/lib/data';
 import type { User, Workout } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { Users } from 'lucide-react';
+import { Users, Loader2 } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
+import { useCollection } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { collection, query, orderBy } from 'firebase/firestore';
 
 interface UserWithWorkouts extends User {
   workouts: Workout[];
 }
 
+function UserWorkouts({ user }: { user: User }) {
+  const firestore = useFirestore();
+  const workoutsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users', user.id, 'workouts'), orderBy('startTime', 'desc'));
+  }, [firestore, user.id]);
+
+  const { data: workouts, isLoading } = useCollection<Workout>(workoutsQuery);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-4"><Loader2 className="animate-spin" /> Carregando treinos...</div>;
+  }
+  
+  if (!workouts || workouts.length === 0) {
+      return <div className="p-4">Nenhum treino encontrado para este usuário.</div>
+  }
+
+  return (
+    <div className="space-y-6">
+      {workouts.map(workout => (
+        <div key={workout.id} className="p-4 border rounded-lg bg-background">
+            <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+            <p className="text-sm text-muted-foreground mb-4">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {workout.photo1Url && <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                {workout.photo2Url && <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+            </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const firestore = useFirestore();
 
-  const usersWithWorkouts: UserWithWorkouts[] = useMemo(() => {
-    return USERS
-      .map(user => ({
-        ...user,
-        workouts: WORKOUTS
-          .filter(workout => workout.userId === user.id)
-          .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()),
-      }))
-      .filter(user => user.workouts.length > 0);
-  }, []);
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), orderBy('name', 'asc'));
+  }, [firestore]);
+
+  const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
 
   const filteredUsers = useMemo(() => {
-    return usersWithWorkouts.filter(user =>
+    if (!users) return [];
+    return users.filter(user =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [usersWithWorkouts, searchTerm]);
+  }, [users, searchTerm]);
 
   const getUserInitials = (name: string) => name.split(' ').map(n => n[0]).join('');
 
@@ -50,7 +83,7 @@ export default function AdminPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> Usuários com Treinos</CardTitle>
+                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> Usuários</CardTitle>
                 <CardDescription>Visualize o histórico de treinos de cada usuário.</CardDescription>
               </div>
               <Input
@@ -62,7 +95,12 @@ export default function AdminPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredUsers.length > 0 ? (
+          {usersLoading ? (
+             <div className="h-24 text-center flex items-center justify-center">
+                <Loader2 className="animate-spin mr-2" />
+                <p>Carregando usuários...</p>
+            </div>
+          ) : filteredUsers.length > 0 ? (
             <Accordion type="multiple" className="w-full">
               {filteredUsers.map(user => (
                 <AccordionItem value={user.id} key={user.id}>
@@ -79,19 +117,8 @@ export default function AdminPage() {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 bg-muted/40">
-                    <h4 className="font-semibold mb-4">Histórico de Treinos ({user.workouts.length})</h4>
-                    <div className="space-y-6">
-                      {user.workouts.map(workout => (
-                        <div key={workout.id} className="p-4 border rounded-lg bg-background">
-                           <p className="font-medium">{format(parseISO(workout.date), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                           <p className="text-sm text-muted-foreground mb-4">Duração: {Math.floor(workout.duration / 60)} minutos</p>
-                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                             <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
-                             <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
-                           </div>
-                        </div>
-                      ))}
-                    </div>
+                    <h4 className="font-semibold mb-4">Histórico de Treinos</h4>
+                    <UserWorkouts user={user} />
                   </AccordionContent>
                 </AccordionItem>
               ))}
