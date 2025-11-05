@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useActionState } from "react";
@@ -67,25 +68,30 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     return cleanup;
   }, [cleanup]);
 
+  // Effect to run the timer and update elapsed seconds
   useEffect(() => {
     if (status === "running" && startTime) {
-      // Set random photo prompt times relative to the start time
-      const prompt1 = startTime + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
-      const prompt2 = startTime + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
-      setPhotoPromptTimes([prompt1, prompt2]);
-
       intervalRef.current = setInterval(() => {
-        // Calculate elapsed time from start time to now
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     } else {
       cleanup();
     }
   }, [status, startTime, cleanup]);
-
-
+  
+  // Effect to set photo prompt times ONLY when the timer starts
   useEffect(() => {
-    if (status === 'running') {
+    if (status === 'running' && startTime) {
+      const prompt1 = startTime + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
+      const prompt2 = startTime + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
+      setPhotoPromptTimes([prompt1, prompt2]);
+    }
+  }, [status, startTime]);
+
+
+  // Effect to check if it's time to prompt for a photo
+  useEffect(() => {
+    if (status === 'running' && photoPromptTimes[0] > 0) {
         const currentTime = Date.now();
         if (photos[0] === null && currentTime >= photoPromptTimes[0]) {
             setPhotoPromptIndex(0);
@@ -95,13 +101,11 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
             setIsModalOpen(true);
         }
     }
-    // We base the check on elapsedSeconds, which updates every second,
-    // to re-evaluate if it's time to show the modal.
   }, [elapsedSeconds, status, photos, photoPromptTimes]);
 
   const handleStart = () => {
-    setStartTime(Date.now());
     setStatus("running");
+    setStartTime(Date.now());
     setElapsedSeconds(0);
     setPhotos([null, null]);
   };
@@ -167,6 +171,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setStartTime(null);
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    setPhotoPromptTimes([0,0]);
   }
 
   const photosTakenCount = photos.filter(p => p !== null).length;
@@ -224,3 +229,4 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     </Card>
   );
 }
+
