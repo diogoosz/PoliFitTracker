@@ -1,13 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { getFirestore, Timestamp, addDoc, collection } from 'firebase/firestore';
-import { getStorage, ref, uploadString } from 'firebase/storage';
-import { initializeFirebase } from "@/firebase";
+import { getFirestore, Timestamp, addDoc, collection, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { initializeServerApp } from "@/firebase/server-init";
 
-// Initialize Firebase Admin SDK
-const { firestore } = initializeFirebase();
-const storage = getStorage();
+// Initialize Firebase Admin SDK for server-side operations
+const { firestore, storage } = initializeServerApp();
 
 const workoutSchema = z.object({
   userId: z.string().min(1, "O ID do usuário é obrigatório."),
@@ -19,13 +18,10 @@ const workoutSchema = z.object({
 async function uploadPhoto(userId: string, workoutId: string, photoDataUrl: string, photoNumber: number): Promise<string> {
     const filePath = `verifications/${userId}/${workoutId}/photo_${photoNumber}.jpg`;
     const storageRef = ref(storage, filePath);
-    // The data URL needs to be stripped of its prefix before uploading
     const base64Data = photoDataUrl.split(',')[1];
-    await uploadString(storageRef, base64Data, 'base64');
-    // In a real app, you would get the download URL. For this example, we'll just return the path.
-    // In a production app, you'd use `getDownloadURL(storageRef)` here.
-    // For simplicity, we are returning a placeholder. The Admin panel will need adjustment to show real images.
-    return `https://firebasestorage.googleapis.com/v0/b/${storageRef.bucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+    await uploadString(storageRef, base64Data, 'base64', { contentType: 'image/jpeg' });
+    const downloadUrl = await getDownloadURL(storageRef);
+    return downloadUrl;
 }
 
 
@@ -72,7 +68,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
     const photo2Url = await uploadPhoto(userId, workoutId, photo2, 2);
 
     // 3. Update the workout document with the photo URLs
-    await workoutRef.update({
+    await updateDoc(workoutRef, {
         photo1Url,
         photo2Url,
     });
