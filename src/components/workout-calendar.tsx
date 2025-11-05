@@ -47,7 +47,7 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
       </CardHeader>
       <CardContent className="flex flex-col items-center">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-[335px]">
             <Loader2 className="animate-spin" />
           </div>
         ) : (
@@ -57,17 +57,13 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
             selected={workoutDates}
             onMonthChange={setCurrentMonth}
             className="rounded-md"
-            classNames={{
-              day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary/90",
-            }}
             modifiers={{
               attended: workoutDates
             }}
             modifiersStyles={{
               attended: { 
                   backgroundColor: 'hsl(var(--primary))', 
-                  color: 'hsl(var(--primary-foreground))',
-                  borderRadius: '50%',
+                  color: 'hsl(var(--primary-foreground))'
               }
             }}
           />
