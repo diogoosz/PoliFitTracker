@@ -8,6 +8,9 @@ import { ThemeProvider } from '@/components/theme-provider';
 export const metadata: Metadata = {
   title: 'Poli Fit Tracker',
   description: 'Acompanhe sua jornada fitness com o Poli Fit Tracker',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
