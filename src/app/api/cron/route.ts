@@ -1,14 +1,35 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
-// Initialize Firebase Admin SDK
-// This requires GOOGLE_APPLICATION_CREDENTIALS to be set in your environment variables.
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    storageBucket: 'studio-4662689289-857d9.appspot.com'
-  });
+// Helper function to initialize Firebase Admin SDK in a serverless environment
+function initializeFirebaseAdmin() {
+    // Check if the app is already initialized
+    if (admin.apps.length) {
+        return admin.app();
+    }
+
+    // Vercel stores the JSON content directly in the environment variable.
+    // We need to parse it and use it to initialize the SDK.
+    const serviceAccountString = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (!serviceAccountString) {
+        throw new Error('The GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
+    }
+
+    try {
+        const serviceAccount = JSON.parse(serviceAccountString);
+        
+        return admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            storageBucket: 'studio-4662689289-857d9.appspot.com'
+        });
+    } catch (error) {
+        console.error("Failed to parse or initialize Firebase Admin SDK:", error);
+        throw new Error("Could not initialize Firebase Admin. Please check the GOOGLE_APPLICATION_CREDENTIALS environment variable format.");
+    }
 }
+
+// Initialize the app
+initializeFirebaseAdmin();
 
 const db = admin.firestore();
 const storage = admin.storage().bucket();
