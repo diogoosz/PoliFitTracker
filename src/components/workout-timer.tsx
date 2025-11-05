@@ -10,7 +10,7 @@ import { Timer, Play, Square, Camera, Loader2 } from "lucide-react";
 import PhotoCaptureModal from "./photo-capture-modal";
 import { useAuth } from "@/lib/auth";
 
-const MIN_WORKOUT_SECONDS = 40 * 60;
+const MIN_WORKOUT_SECONDS = 2 * 60; // 2 minutes for testing
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -82,8 +82,9 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   // Effect to set photo prompt times ONLY when the timer starts
   useEffect(() => {
     if (status === 'running' && startTime) {
-      const prompt1 = startTime + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
-      const prompt2 = startTime + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
+      // For 2 minute test: 10s to 50s, then 60s to 110s
+      const prompt1 = startTime + getRandomTime(10 * 1000, 50 * 1000); 
+      const prompt2 = startTime + getRandomTime(60 * 1000, 110 * 1000);
       setPhotoPromptTimes([prompt1, prompt2]);
     }
   }, [status, startTime]);
@@ -229,4 +230,3 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     </Card>
   );
 }
-
