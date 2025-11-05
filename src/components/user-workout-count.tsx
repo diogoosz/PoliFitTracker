@@ -6,7 +6,6 @@ import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { Workout } from '@/lib/types';
-import { Badge } from './ui/badge';
 
 export function UserWorkoutCount({ userId }: { userId: string }) {
   const firestore = useFirestore();
@@ -23,9 +22,14 @@ export function UserWorkoutCount({ userId }: { userId: string }) {
 
   const count = workouts?.length || 0;
 
+  // Render nothing if count is 0
+  if (count === 0) {
+    return null;
+  }
+
   return (
-    <Badge variant={count > 0 ? "default" : "secondary"}>
-      {count} {count === 1 ? 'treino' : 'treinos'}
-    </Badge>
+    <div className="flex items-center justify-center size-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+      {count}
+    </div>
   );
 }
