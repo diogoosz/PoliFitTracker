@@ -7,8 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   useUser, 
   useAuth as useFirebaseAuth, 
-  useFirestore,
-  useMemoFirebase
+  useFirestore
 } from '@/firebase';
 import { 
   GoogleAuthProvider, 
@@ -30,31 +29,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const ALLOWED_DOMAIN = "poli.digital";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user: firebaseUser, isUserLoading } = useUser();
+  const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
   const auth = useFirebaseAuth();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false); // New state for syncing logic
   const router = useRouter();
   const { toast } = useToast();
 
+  const loading = isFirebaseUserLoading || isSyncing;
+
   useEffect(() => {
     const syncUser = async () => {
-      // We are already loading if the firebase user is loading
-      if (isUserLoading) {
-        setLoading(true);
+      if (!firebaseUser) {
+        setAppUser(null);
+        setIsSyncing(false);
         return;
       }
       
-      // If there's no firebase user, there's no app user.
-      if (!firebaseUser) {
-        setAppUser(null);
-        setLoading(false);
-        return;
-      }
-
-      // Start internal loading for domain check and firestore sync
-      setLoading(true);
+      setIsSyncing(true);
 
       // Check for allowed domain
       if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -65,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         await firebaseSignOut(auth);
         setAppUser(null);
-        setLoading(false);
+        setIsSyncing(false);
         return;
       }
       
@@ -88,15 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAppUser(newUser);
         }
       }
-       setLoading(false);
+      setIsSyncing(false);
     };
 
     syncUser();
-  }, [firebaseUser, isUserLoading, firestore, auth, toast]);
+  }, [firebaseUser, firestore, auth, toast]);
 
   const signInWithGoogle = async () => {
     if (!auth) return;
-    setLoading(true);
+    setIsSyncing(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -110,10 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: 'destructive',
         });
       }
-    } finally {
-      // In case of popup close, we need to stop loading. 
-      // For successful login, the useEffect will take over loading state.
-      setLoading(false); 
+      // In case of any error or popup close, stop loading.
+      setIsSyncing(false); 
     }
   };
 
