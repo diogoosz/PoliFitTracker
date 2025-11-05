@@ -1,5 +1,8 @@
-# Firebase Studio
+# Poli Fit Tracker
 
-This is a NextJS starter in Firebase Studio.
+Este é um aplicativo Next.js para rastreamento de treinos, criado com o Firebase Studio.
 
-To get started, take a look at src/app/page.tsx.
+## Para rodar localmente
+
+1. `npm install`
+2. `npm run dev`

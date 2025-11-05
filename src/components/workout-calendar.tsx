@@ -60,11 +60,8 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
             modifiers={{
               attended: workoutDates
             }}
-            modifiersStyles={{
-              attended: { 
-                  backgroundColor: 'hsl(var(--primary))', 
-                  color: 'hsl(var(--primary-foreground))'
-              }
+            modifiersClassNames={{
+              attended: 'day-attended'
             }}
           />
         )}
