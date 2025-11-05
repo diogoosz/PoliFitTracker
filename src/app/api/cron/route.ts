@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
+// This ensures the route is treated as dynamic, which is best practice for cron jobs.
+export const dynamic = 'force-dynamic';
+
 // Helper function to initialize Firebase Admin SDK in a serverless environment
 function initializeFirebaseAdmin() {
     // Check if the app is already initialized
@@ -29,8 +32,7 @@ function initializeFirebaseAdmin() {
 }
 
 // Initialize the app
-initializeFirebaseAdmin();
-
+const app = initializeFirebaseAdmin();
 const db = admin.firestore();
 const storage = admin.storage().bucket();
 
