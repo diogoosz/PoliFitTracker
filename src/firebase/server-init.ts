@@ -1,25 +1,34 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { firebaseConfig } from './config';
+import * as admin from 'firebase-admin';
 
 // This function should be called in server-side code (e.g., Server Actions, API routes).
 export function initializeServerApp() {
   // Check if the default app is already initialized
-  if (!getApps().length) {
-    // If not, initialize it with the config from your project
-    const app = initializeApp(firebaseConfig);
-    return getSdks(app);
-  } else {
-    // If it is initialized, just get the app and the SDKs
-    const app = getApp();
-    return getSdks(app);
+  if (admin.apps.length > 0) {
+    return {
+      app: admin.app(),
+      firestore: admin.firestore(),
+    };
   }
-}
+  
+  const serviceAccountString = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!serviceAccountString) {
+      throw new Error('The GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
+  }
 
-// Helper to get all the SDK instances
-function getSdks(app: FirebaseApp) {
-  const firestore = getFirestore(app);
-  const storage = getStorage(app);
-  return { app, firestore, storage };
+  try {
+      const serviceAccount = JSON.parse(serviceAccountString);
+      
+      const app = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          storageBucket: 'studio-4662689289-857d9.appspot.com'
+      });
+      
+      return {
+          app,
+          firestore: admin.firestore(),
+      };
+  } catch (error) {
+      console.error("Failed to parse or initialize Firebase Admin SDK:", error);
+      throw new Error("Could not initialize Firebase Admin. Please check the GOOGLE_APPLICATION_CREDENTIALS environment variable format.");
+  }
 }

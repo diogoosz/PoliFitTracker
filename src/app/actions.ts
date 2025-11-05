@@ -1,12 +1,14 @@
 "use server";
 
 import { z } from "zod";
-import { getFirestore, Timestamp, addDoc, collection, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { initializeServerApp } from "@/firebase/server-init";
+import { Timestamp }from 'firebase-admin/firestore';
+import { getStorage as getAdminStorage } from 'firebase-admin/storage';
+
 
 // Initialize Firebase Admin SDK for server-side operations
-const { firestore, storage } = initializeServerApp();
+const { firestore } = initializeServerApp();
+const adminStorage = getAdminStorage();
 
 const workoutSchema = z.object({
   userId: z.string().min(1, "O ID do usuário é obrigatório."),
@@ -16,12 +18,22 @@ const workoutSchema = z.object({
 });
 
 async function uploadPhoto(userId: string, workoutId: string, photoDataUrl: string, photoNumber: number): Promise<string> {
+    const bucket = adminStorage.bucket();
     const filePath = `verifications/${userId}/${workoutId}/photo_${photoNumber}.jpg`;
-    const storageRef = ref(storage, filePath);
+    const file = bucket.file(filePath);
     const base64Data = photoDataUrl.split(',')[1];
-    await uploadString(storageRef, base64Data, 'base64', { contentType: 'image/jpeg' });
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    await file.save(buffer, {
+        metadata: {
+            contentType: 'image/jpeg',
+        },
+    });
+
+    // Make the file public to get a downloadable URL
+    await file.makePublic();
+    
+    return file.publicUrl();
 }
 
 
@@ -51,12 +63,14 @@ export async function logWorkout(prevState: any, formData: FormData) {
     const startTime = Timestamp.now();
     const endTime = Timestamp.fromMillis(startTime.toMillis() + duration * 1000);
 
+    const workoutCollectionRef = firestore.collection(`users/${userId}/workouts`);
+    
     // 1. Create the workout document first to get an ID
-    const workoutRef = await addDoc(collection(firestore, `users/${userId}/workouts`), {
+    const workoutRef = await workoutCollectionRef.add({
         userId,
         startTime,
         endTime,
-        duration,
+        duration: Math.floor(duration),
         photo1Url: '', // Will be updated
         photo2Url: '', // Will be updated
     });
@@ -68,7 +82,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
     const photo2Url = await uploadPhoto(userId, workoutId, photo2, 2);
 
     // 3. Update the workout document with the photo URLs
-    await updateDoc(workoutRef, {
+    await workoutRef.update({
         photo1Url,
         photo2Url,
     });
