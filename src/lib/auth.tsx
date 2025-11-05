@@ -1,68 +1,88 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { User } from './types';
-import { USERS } from './data';
+import type { User as AppUser } from './types';
 import { useRouter } from 'next/navigation';
+import { 
+  useUser, 
+  useAuth as useFirebaseAuth, 
+  useFirestore,
+  useMemoFirebase
+} from '@/firebase';
+import { 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut as firebaseSignOut 
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   signInWithGoogle: () => void;
-  signInAsAdmin: () => void;
   signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// This is a mock authentication provider. In a real app, you would integrate
-// with Firebase Authentication here. The signInWithGoogle function would call
-// the GoogleAuthProvider flow and you'd use onAuthStateChanged to set the user.
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const { user: firebaseUser, isUserLoading } = useUser();
+  const auth = useFirebaseAuth();
+  const firestore = useFirestore();
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Simulate checking for a logged-in user
-    const storedUser = sessionStorage.getItem('poli-fit-user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
+    const syncUser = async () => {
+      setLoading(true);
+      if (firebaseUser && firestore) {
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setAppUser(userSnap.data() as AppUser);
+        } else {
+          // Create user profile if it doesn't exist
+          const newUser: AppUser = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Usuário',
+            email: firebaseUser.email || '',
+            avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/40/40`,
+            isAdmin: false, // Default to not admin
+          };
+          await setDoc(userRef, newUser);
+          setAppUser(newUser);
+        }
+      } else {
+        setAppUser(null);
+      }
+       setLoading(false);
+    };
 
-  const signInWithGoogle = () => {
+    syncUser();
+  }, [firebaseUser, firestore]);
+
+  const signInWithGoogle = async () => {
+    if (!auth) return;
     setLoading(true);
-    // In a real implementation, here you would trigger Google sign-in.
-    // For this mock, we'll just log in the non-admin user by default.
-    // A real implementation should also validate the domain (@poli.digital).
-    const mockUser = USERS.find(u => !u.isAdmin) || USERS[0];
-    sessionStorage.setItem('poli-fit-user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setLoading(false);
-    router.push('/dashboard');
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle the rest
+    } catch (error) {
+      console.error("Google Sign-In Error", error);
+      setLoading(false);
+    }
   };
 
-  const signInAsAdmin = () => {
-    setLoading(true);
-    const mockAdmin = USERS.find(u => u.isAdmin);
-    if (mockAdmin) {
-      sessionStorage.setItem('poli-fit-user', JSON.stringify(mockAdmin));
-      setUser(mockAdmin);
-      router.push('/admin');
-    }
-    setLoading(false);
-  };
-
-
-  const signOut = () => {
-    sessionStorage.removeItem('poli-fit-user');
-    setUser(null);
+  const signOut = async () => {
+    if (!auth) return;
+    await firebaseSignOut(auth);
+    setAppUser(null);
     router.push('/');
   };
 
-  const value = { user, loading, signInWithGoogle, signInAsAdmin, signOut };
+  const value = { user: appUser, loading: isUserLoading || loading, signInWithGoogle, signOut };
 
   return (
     <AuthContext.Provider value={value}>

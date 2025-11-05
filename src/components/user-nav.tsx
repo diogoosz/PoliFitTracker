@@ -22,16 +22,16 @@ export function UserNav() {
   }
 
   const userInitials = user.name
-    .split(' ')
+    ?.split(' ')
     .map((n) => n[0])
-    .join('');
+    .join('') || '';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
+            <AvatarImage src={user.avatarUrl} alt={user.name || ''} data-ai-hint="user avatar" />
             <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
         </Button>

@@ -22,6 +22,14 @@
         "name": {
           "type": "string",
           "description": "The user's full name."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Whether the user is an admin."
+        },
+        "avatarUrl": {
+            "type": "string",
+            "format": "uri"
         }
       },
       "required": [
@@ -113,8 +121,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
