@@ -98,8 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      // onAuthStateChanged will handle user creation and redirection
+      // onAuthStateChanged will handle user creation and redirection.
+      // setLoading will be handled by the useEffect hook.
     } catch (error: any) {
+      // Always reset loading state on error
+      setLoading(false); 
+      
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
          toast({
@@ -108,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: 'destructive',
         });
       }
-      setLoading(false);
     }
   };
 
