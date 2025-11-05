@@ -41,7 +41,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   useEffect(() => {
     if (formState.message) {
       toast({
-        title: formState.type === 'success' ? 'Success!' : 'Error',
+        title: formState.type === 'success' ? 'Sucesso!' : 'Erro',
         description: formState.message,
         variant: formState.type === 'error' ? 'destructive' : 'default',
       });
@@ -104,8 +104,8 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
     if (elapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
-        title: "Workout Too Short",
-        description: `Your workout must be at least 40 minutes long. You only completed ${Math.floor(elapsedSeconds / 60)} minutes.`,
+        title: "Treino Muito Curto",
+        description: `Seu treino deve ter no mínimo 40 minutos. Você completou apenas ${Math.floor(elapsedSeconds / 60)} minutos.`,
         variant: "destructive",
       });
       resetWorkout();
@@ -114,8 +114,8 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
     if (!photos[0] || !photos[1]) {
       toast({
-        title: "Verification Incomplete",
-        description: "You must complete both photo verifications to log your workout.",
+        title: "Verificação Incompleta",
+        description: "Você deve completar as duas verificações com foto para registrar seu treino.",
         variant: "destructive",
       });
       resetWorkout();
@@ -151,7 +151,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   return (
     <Card className="shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-medium font-headline">Workout Session</CardTitle>
+        <CardTitle className="text-xl font-medium font-headline">Sessão de Treino</CardTitle>
         <Timer className="h-6 w-6 text-muted-foreground" />
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center space-y-6 pt-6">
@@ -161,25 +161,25 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
         
         {status === "idle" && (
           <Button size="lg" className="w-48" onClick={handleStart}>
-            <Play className="mr-2 h-5 w-5" /> Start Workout
+            <Play className="mr-2 h-5 w-5" /> Iniciar Treino
           </Button>
         )}
         
         {status === "running" && (
           <div className="w-full text-center space-y-4">
               <Button size="lg" className="w-48" onClick={handleStop} variant="destructive">
-                <Square className="mr-2 h-5 w-5" /> Stop Workout
+                <Square className="mr-2 h-5 w-5" /> Parar Treino
               </Button>
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <Camera className="h-4 w-4" />
-                  <span>{photosTakenCount}/2 photos taken</span>
+                  <span>{photosTakenCount}/2 fotos tiradas</span>
               </div>
           </div>
         )}
 
         {status === "stopped" && (
            <div className="flex flex-col items-center gap-4">
-            <p className="text-muted-foreground">Submitting your workout...</p>
+            <p className="text-muted-foreground">Enviando seu treino...</p>
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}

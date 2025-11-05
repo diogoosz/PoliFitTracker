@@ -12,6 +12,7 @@ import { USERS, WORKOUTS } from '@/lib/data';
 import type { User, Workout } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Eye, Users } from 'lucide-react';
+import { ptBR } from 'date-fns/locale';
 
 interface WorkoutWithUser extends Workout {
   user: User;
@@ -37,19 +38,19 @@ export default function AdminPage() {
   return (
     <div className="container mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight font-headline">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage and review user workout history.</p>
+        <h1 className="text-3xl font-bold tracking-tight font-headline">Painel do Administrador</h1>
+        <p className="text-muted-foreground">Gerencie e revise o histórico de treinos dos usuários.</p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> All Workouts</CardTitle>
-                <CardDescription>A log of all submitted workout sessions.</CardDescription>
+                <CardTitle className="flex items-center gap-2 font-headline"><Users className="size-5" /> Todos os Treinos</CardTitle>
+                <CardDescription>Um registro de todas as sessões de treino enviadas.</CardDescription>
               </div>
               <Input
-                placeholder="Search by name or email..."
+                placeholder="Buscar por nome ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full sm:max-w-sm"
@@ -61,11 +62,11 @@ export default function AdminPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Verification</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Duração</TableHead>
+                  <TableHead>Verificação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -76,26 +77,26 @@ export default function AdminPage() {
                         <div className="font-medium">{workout.user.name}</div>
                         <div className="text-sm text-muted-foreground">{workout.user.email}</div>
                       </TableCell>
-                      <TableCell>{format(parseISO(workout.date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>{Math.floor(workout.duration / 60)} mins</TableCell>
+                      <TableCell>{format(parseISO(workout.date), 'd MMM, yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{Math.floor(workout.duration / 60)} min</TableCell>
                       <TableCell>
-                         <Badge variant="default" className="bg-green-500 hover:bg-green-600">Verified</Badge>
+                         <Badge variant="default" className="bg-green-500 hover:bg-green-600">Verificado</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Dialog>
                            <DialogTrigger asChild>
-                             <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> View Photos</Button>
+                             <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Ver Fotos</Button>
                            </DialogTrigger>
                            <DialogContent>
                              <DialogHeader>
-                               <DialogTitle>Verification Photos for {workout.user.name}</DialogTitle>
+                               <DialogTitle>Fotos de Verificação para {workout.user.name}</DialogTitle>
                                <DialogDescription>
-                                 {format(parseISO(workout.date), 'MMMM d, yyyy')} - {Math.floor(workout.duration / 60)} minutes
+                                 {format(parseISO(workout.date), 'd \'de\' MMMM \'de\' yyyy', { locale: ptBR })} - {Math.floor(workout.duration / 60)} minutos
                                </DialogDescription>
                              </DialogHeader>
                              <div className="grid grid-cols-2 gap-4 mt-4">
-                               <Image src={workout.photo1Url} alt="Verification photo 1" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
-                               <Image src={workout.photo2Url} alt="Verification photo 2" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
+                               <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
+                               <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md" data-ai-hint="workout selfie" />
                              </div>
                            </DialogContent>
                          </Dialog>
@@ -105,7 +106,7 @@ export default function AdminPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                      No results found.
+                      Nenhum resultado encontrado.
                     </TableCell>
                   </TableRow>
                 )}

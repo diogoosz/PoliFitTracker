@@ -40,8 +40,8 @@ export function AppLayout({ children, admin = false }: AppLayoutProps) {
   if (admin && !user.isAdmin) {
      return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
-        <p>You are not authorized to view this page.</p>
-        <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+        <p>Você não tem autorização para ver esta página.</p>
+        <Button onClick={() => router.push('/dashboard')}>Ir para o Painel</Button>
       </div>
     );
   }

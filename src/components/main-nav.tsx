@@ -13,7 +13,7 @@ export function MainNav() {
   const menuItems = [
     {
       href: '/dashboard',
-      label: 'Dashboard',
+      label: 'Painel',
       icon: LayoutDashboard,
       active: pathname === '/dashboard',
     },

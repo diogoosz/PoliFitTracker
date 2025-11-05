@@ -29,9 +29,9 @@ export default function PhotoCaptureModal({ isOpen, onClose, onPhotoTaken }: Pho
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Photo Verification</DialogTitle>
+          <DialogTitle className="font-headline">Verificação com Foto</DialogTitle>
           <DialogDescription>
-            Time for a quick check-in! Please take a photo to verify your workout.
+            Hora de um check-in rápido! Por favor, tire uma foto para verificar seu treino.
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center p-8 bg-secondary rounded-md">
@@ -40,7 +40,7 @@ export default function PhotoCaptureModal({ isOpen, onClose, onPhotoTaken }: Pho
         </div>
         <DialogFooter>
           <Button onClick={handleCapture} className="w-full">
-            <Camera className="mr-2 h-4 w-4" /> Take Photo
+            <Camera className="mr-2 h-4 w-4" /> Tirar Foto
           </Button>
         </DialogFooter>
       </DialogContent>

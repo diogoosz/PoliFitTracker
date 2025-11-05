@@ -3,8 +3,8 @@
 import { z } from "zod";
 
 const workoutSchema = z.object({
-  duration: z.number().min(2400, "Workout must be at least 40 minutes."), // 40 minutes in seconds
-  photos: z.array(z.string().min(1, "Photo is required")).length(2, "Two photos are required."),
+  duration: z.number().min(2400, "O treino deve ter pelo menos 40 minutos."), // 40 minutes in seconds
+  photos: z.array(z.string().min(1, "A foto é obrigatória")).length(2, "São necessárias duas fotos."),
 });
 
 export async function logWorkout(prevState: any, formData: FormData) {
@@ -18,7 +18,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
   
   if (!validatedFields.success) {
     return {
-      message: validatedFields.error.flatten().fieldErrors.duration?.[0] || validatedFields.error.flatten().fieldErrors.photos?.[0] || "Invalid data",
+      message: validatedFields.error.flatten().fieldErrors.duration?.[0] || validatedFields.error.flatten().fieldErrors.photos?.[0] || "Dados inválidos",
       type: "error" as const,
     };
   }
@@ -28,7 +28,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
   console.log("Workout logged:", { duration, photos });
   
   return {
-    message: "Workout logged successfully! Great job!",
+    message: "Treino registrado com sucesso! Ótimo trabalho!",
     type: "success" as const,
   };
 }

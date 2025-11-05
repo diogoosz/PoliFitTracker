@@ -35,9 +35,9 @@ export default function LoginPage() {
             <div className="mb-4 inline-block">
               <Logo />
             </div>
-            <CardTitle className="font-headline text-2xl">Welcome Back!</CardTitle>
+            <CardTitle className="font-headline text-2xl">Bem-vindo de volta!</CardTitle>
             <CardDescription>
-              Sign in to track your fitness journey.
+              Faça login para acompanhar sua jornada fitness.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -47,7 +47,7 @@ export default function LoginPage() {
               size="lg"
             >
               <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.2 172.9 56.5l-63.6 61.8C330.3 93.3 292.3 78 248 78c-84.3 0-152.3 68.3-152.3 153s68 153 152.3 153c92.1 0 132.8-62.8 136.7-94.6H248v-73.3h235.3c4.7 26.5 7.7 54.1 7.7 85.8z"></path></svg>
-              Sign in with Google
+              Entrar com o Google
             </Button>
           </CardContent>
         </Card>
@@ -55,7 +55,7 @@ export default function LoginPage() {
       <div className="relative hidden flex-1 lg:block">
         <Image
           src="https://picsum.photos/seed/fitness/1200/1800"
-          alt="Man working out"
+          alt="Homem se exercitando"
           fill
           className="object-cover"
           data-ai-hint="fitness workout"

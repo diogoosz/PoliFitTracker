@@ -33,8 +33,8 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
       <CardHeader>
         <div className="flex items-center justify-between">
             <div>
-                <CardTitle className="font-headline text-xl">My Progress</CardTitle>
-                <CardDescription>Your workout history at a glance.</CardDescription>
+                <CardTitle className="font-headline text-xl">Meu Progresso</CardTitle>
+                <CardDescription>Seu histórico de treinos.</CardDescription>
             </div>
             <CalendarDays className="h-6 w-6 text-muted-foreground" />
         </div>
@@ -61,7 +61,7 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
         />
         <div className="mt-4 flex items-center gap-2 rounded-lg bg-accent/50 p-3 text-sm font-medium text-accent-foreground">
             <CheckCircle className="h-5 w-5 text-green-500" />
-            <span>You've attended {workoutsThisMonth} days this month!</span>
+            <span>Você treinou {workoutsThisMonth} dias este mês!</span>
         </div>
       </CardContent>
     </Card>

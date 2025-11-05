@@ -19,9 +19,9 @@ export default function DashboardPage() {
     <div className="container mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight font-headline">
-          Welcome back, {user.name.split(' ')[0]}!
+          Bem-vindo de volta, {user.name.split(' ')[0]}!
         </h1>
-        <p className="text-muted-foreground">Ready to crush your goals today?</p>
+        <p className="text-muted-foreground">Pronto para esmagar suas metas hoje?</p>
       </div>
       <div className="grid gap-8 lg:grid-cols-5">
         <div className="lg:col-span-3">
