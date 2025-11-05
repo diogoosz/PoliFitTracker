@@ -105,7 +105,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     if (elapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `Seu treino deve ter no mínimo 40 minutos. Você completou apenas ${Math.floor(elapsedSeconds / 60)} minutos.`,
+        description: `O treino não atingiu a duração mínima necessária. Você completou ${Math.floor(elapsedSeconds / 60)} minutos.`,
         variant: "destructive",
       });
       resetWorkout();
