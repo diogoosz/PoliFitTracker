@@ -51,27 +51,5 @@ service cloud.firestore {
       allow update: if isOwner(userId) && resource != null;
       allow delete: if isOwner(userId) && resource != null;
     }
-
-    /**
-     * @description Controls access to photo verification documents within a user's workout.
-     * @path /users/{userId}/workouts/{workoutId}/photos/{photoId}
-     * @allow (get, list) User with matching UID or an admin can read and list photo documents.
-     * @allow (create, update, delete) Only the owner can write or delete their own photo documents.
-     * @principle Enforces document ownership for write operations, but allows admin read access.
-     */
-    match /users/{userId}/workouts/{workoutId}/photos/{photoId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      function isAdmin() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      }
-
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
-    }
   }
 }

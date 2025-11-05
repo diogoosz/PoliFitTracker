@@ -34,7 +34,6 @@
       },
       "required": [
         "id",
-        "googleId",
         "email",
         "name"
       ]
@@ -67,13 +66,15 @@
           "type": "number",
           "description": "The duration of the workout in minutes."
         },
-        "photoVerification1Id": {
+        "photo1Url": {
           "type": "string",
-          "description": "Reference to PhotoVerification. (Relationship: Workout 1:1 PhotoVerification1)"
+          "format": "uri",
+          "description": "URL of the first verification photo stored in Firebase Storage."
         },
-        "photoVerification2Id": {
+        "photo2Url": {
           "type": "string",
-          "description": "Reference to PhotoVerification. (Relationship: Workout 1:1 PhotoVerification2)"
+          "format": "uri",
+          "description": "URL of the second verification photo stored in Firebase Storage."
         }
       },
       "required": [
@@ -82,40 +83,8 @@
         "startTime",
         "endTime",
         "duration",
-        "photoVerification1Id",
-        "photoVerification2Id"
-      ]
-    },
-    "PhotoVerification": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PhotoVerification",
-      "type": "object",
-      "description": "Represents a photo verification taken during a workout.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the photo verification entity."
-        },
-        "workoutId": {
-          "type": "string",
-          "description": "Reference to Workout. (Relationship: Workout 1:N PhotoVerification)"
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the image taken for verification.",
-          "format": "uri"
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "The time the photo was taken.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "workoutId",
-        "imageUrl",
-        "timestamp"
+        "photo1Url",
+        "photo2Url"
       ]
     }
   },
@@ -161,32 +130,8 @@
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/workouts/{workoutId}/photos/{photoId}",
-        "definition": {
-          "entityName": "PhotoVerification",
-          "schema": {
-            "$ref": "#/backend/entities/PhotoVerification"
-          },
-          "description": "Stores photo verifications for a specific workout. This structure ensures that photos are associated with their respective workouts and users. Includes denormalized 'userId' and 'workoutId' to avoid parent `get()` calls in security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user who owns the workout and photo."
-            },
-            {
-              "name": "workoutId",
-              "description": "The unique identifier for the workout the photo belongs to."
-            },
-            {
-              "name": "photoId",
-              "description": "The unique identifier for the photo verification."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to ensure security, scalability, and debuggability, following the principles of Authorization Independence, Clarity of Intent, DBAC, and QAPs. User data is stored in `/users/{userId}`. Workouts are stored as subcollections under each user (`/users/{userId}/workouts/{workoutId}`) to establish ownership and facilitate querying workouts for a specific user. Photo verifications are also stored as subcollections under the workout (`/users/{userId}/workouts/{workoutId}/photos/{photoId}`), making it straightforward to retrieve photos associated with a specific workout. This design uses path-based ownership for user-owned data (Users 1:N Workouts 1:N PhotoVerifications). Authorization Independence is achieved because access control is determined by the path (user ID) without requiring `get()` calls to parent documents. This supports QAPs by allowing secure list operations within each user's workouts and photos. The admin dashboard can access all users and their data, requiring secure rules to restrict access to admin roles only."
+    "reasoning": "The Firestore data structure is designed for security and scalability. User data is stored in `/users/{userId}`. Workouts are stored as a subcollection under each user (`/users/{userId}/workouts/{workoutId}`) to establish clear ownership and simplify security rules. Instead of storing photo files in a separate collection, the direct URLs to the images in Firebase Storage are stored within the workout document (`photo1Url`, `photo2Url`). This simplifies data retrieval, as a single document read fetches all necessary information for a workout, including its verification images. This design follows path-based ownership and ensures efficient, secure queries."
   }
 }
