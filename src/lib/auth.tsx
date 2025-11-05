@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => void;
+  signInAsAdmin: () => void;
   signOut: () => void;
 }
 
@@ -43,13 +44,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/dashboard');
   };
 
+  const signInAsAdmin = () => {
+    setLoading(true);
+    const mockAdmin = USERS.find(u => u.isAdmin);
+    if (mockAdmin) {
+      sessionStorage.setItem('poli-fit-user', JSON.stringify(mockAdmin));
+      setUser(mockAdmin);
+      router.push('/admin');
+    }
+    setLoading(false);
+  };
+
+
   const signOut = () => {
     sessionStorage.removeItem('poli-fit-user');
     setUser(null);
     router.push('/');
   };
 
-  const value = { user, loading, signInWithGoogle, signOut };
+  const value = { user, loading, signInWithGoogle, signInAsAdmin, signOut };
 
   return (
     <AuthContext.Provider value={value}>
