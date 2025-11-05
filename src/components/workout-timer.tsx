@@ -27,6 +27,7 @@ const getRandomTime = (min: number, max: number) => Math.floor(Math.random() * (
 export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void }) {
   const { user } = useAuth();
   const [status, setStatus] = useState<"idle" | "running" | "stopped">("idle");
+  const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,19 +68,21 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   }, [cleanup]);
 
   useEffect(() => {
-    if (status === "running") {
-      const now = Date.now();
-      const prompt1 = now + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
-      const prompt2 = now + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
+    if (status === "running" && startTime) {
+      // Set random photo prompt times relative to the start time
+      const prompt1 = startTime + getRandomTime(60 * 1000, (MIN_WORKOUT_SECONDS / 2 - 60) * 1000); // between 1 min and 19 mins
+      const prompt2 = startTime + getRandomTime((MIN_WORKOUT_SECONDS / 2) * 1000, (MIN_WORKOUT_SECONDS - 60) * 1000); // between 20 mins and 39 mins
       setPhotoPromptTimes([prompt1, prompt2]);
 
       intervalRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
+        // Calculate elapsed time from start time to now
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     } else {
       cleanup();
     }
-  }, [status, cleanup]);
+  }, [status, startTime, cleanup]);
+
 
   useEffect(() => {
     if (status === 'running') {
@@ -92,22 +95,28 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
             setIsModalOpen(true);
         }
     }
+    // We base the check on elapsedSeconds, which updates every second,
+    // to re-evaluate if it's time to show the modal.
   }, [elapsedSeconds, status, photos, photoPromptTimes]);
 
   const handleStart = () => {
+    setStartTime(Date.now());
     setStatus("running");
     setElapsedSeconds(0);
     setPhotos([null, null]);
   };
 
   const handleStop = () => {
-    setStatus("stopped");
     cleanup();
+    // Use the final reliable elapsed time for validation and submission
+    const finalElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+    setElapsedSeconds(finalElapsedSeconds);
+    setStatus("stopped");
 
-    if (elapsedSeconds < MIN_WORKOUT_SECONDS) {
+    if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `O treino não atingiu a duração mínima necessária. Você completou ${Math.floor(elapsedSeconds / 60)} minutos.`,
+        description: `O treino não atingiu a duração mínima necessária. Você completou ${Math.floor(finalElapsedSeconds / 60)} minutos.`,
         variant: "destructive",
       });
       resetWorkout();
@@ -137,7 +146,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setIsSubmitting(true);
     const formData = new FormData();
     formData.append('userId', user.id);
-    formData.append('duration', String(elapsedSeconds));
+    formData.append('duration', String(finalElapsedSeconds));
     formData.append('photo1', photos[0]);
     formData.append('photo2', photos[1]);
     formAction(formData);
@@ -155,6 +164,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   const resetWorkout = () => {
     setStatus("idle");
+    setStartTime(null);
     setElapsedSeconds(0);
     setPhotos([null, null]);
   }
