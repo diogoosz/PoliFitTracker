@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCollection } from '@/firebase';
@@ -6,6 +5,7 @@ import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { Workout } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export function UserWorkoutCount({ userId }: { userId: string }) {
   const firestore = useFirestore();
@@ -22,13 +22,13 @@ export function UserWorkoutCount({ userId }: { userId: string }) {
 
   const count = workouts?.length || 0;
 
-  // Render nothing if count is 0
-  if (count === 0) {
-    return null;
-  }
-
   return (
-    <div className="flex items-center justify-center size-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+    <div className={cn(
+        "flex items-center justify-center size-6 rounded-full text-xs font-bold",
+        count > 0 
+            ? "bg-primary text-primary-foreground" 
+            : "bg-muted text-muted-foreground"
+    )}>
       {count}
     </div>
   );
