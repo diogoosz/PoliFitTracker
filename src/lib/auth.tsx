@@ -40,21 +40,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncUser = async () => {
-      setLoading(true);
-      if (firebaseUser && firestore) {
-        // Check domain again in case user was already logged in
-        if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
-            toast({
-                title: 'Acesso Negado',
-                description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
-                variant: 'destructive',
-            });
-            await firebaseSignOut(auth);
-            setAppUser(null);
-            setLoading(false);
-            return;
-        }
+      // We are already loading if the firebase user is loading
+      if (isUserLoading) {
+        setLoading(true);
+        return;
+      }
+      
+      // If there's no firebase user, there's no app user.
+      if (!firebaseUser) {
+        setAppUser(null);
+        setLoading(false);
+        return;
+      }
 
+      // Start internal loading for domain check and firestore sync
+      setLoading(true);
+
+      // Check for allowed domain
+      if (!firebaseUser.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        toast({
+            title: 'Acesso Negado',
+            description: `Apenas usuários com e-mail @${ALLOWED_DOMAIN} podem acessar.`,
+            variant: 'destructive',
+        });
+        await firebaseSignOut(auth);
+        setAppUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Sync with firestore
+      if (firestore) {
         const userRef = doc(firestore, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
@@ -71,39 +87,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await setDoc(userRef, newUser);
           setAppUser(newUser);
         }
-      } else {
-        setAppUser(null);
       }
        setLoading(false);
     };
 
     syncUser();
-  }, [firebaseUser, firestore, auth, toast]);
+  }, [firebaseUser, isUserLoading, firestore, auth, toast]);
 
   const signInWithGoogle = async () => {
     if (!auth) return;
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      if (!user.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
-        toast({
-            title: 'Domínio de E-mail Não Autorizado',
-            description: `Por favor, utilize uma conta com o domínio @${ALLOWED_DOMAIN}.`,
-            variant: 'destructive',
-        });
-        await firebaseSignOut(auth);
-        setLoading(false);
-        return;
-      }
-      // onAuthStateChanged will handle user creation and redirection.
-      // setLoading will be handled by the useEffect hook.
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged in the useEffect will handle everything else
     } catch (error: any) {
-      // Always reset loading state on error
-      setLoading(false); 
-      
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
          toast({
@@ -112,6 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: 'destructive',
         });
       }
+    } finally {
+      // In case of popup close, we need to stop loading. 
+      // For successful login, the useEffect will take over loading state.
+      setLoading(false); 
     }
   };
 
@@ -122,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/');
   };
 
-  const value = { user: appUser, loading: isUserLoading || loading, signInWithGoogle, signOut };
+  const value = { user: appUser, loading, signInWithGoogle, signOut };
 
   return (
     <AuthContext.Provider value={value}>
