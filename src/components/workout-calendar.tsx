@@ -28,10 +28,12 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
 
   const { data: userWorkouts, isLoading } = useCollection<Workout>(workoutsQuery);
 
-  const workoutDates = userWorkouts ? userWorkouts.map(w => w.startTime.toDate()) : [];
+  const workoutDates = userWorkouts 
+    ? userWorkouts.map(w => w.startTime && 'toDate' in w.startTime ? w.startTime.toDate() : new Date()) 
+    : [];
 
   const workoutsThisMonth = userWorkouts?.filter(w => 
-    isSameMonth(w.startTime.toDate(), currentMonth)
+    w.startTime && 'toDate' in w.startTime && isSameMonth(w.startTime.toDate(), currentMonth)
   ).length || 0;
 
   return (
