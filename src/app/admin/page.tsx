@@ -133,7 +133,7 @@ function UserWorkouts({ user }: { user: User }) {
                 <div>
                     <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
                     <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
-                    {workout.reviewerName && (
+                    {workout.reviewerName && workout.reviewedAt && (
                         <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
                             <UserCheck className="h-3 w-3" />
                             Revisado por {workout.reviewerName} em {format(workout.reviewedAt.toDate(), "dd/MM/yy 'às' HH:mm")}
