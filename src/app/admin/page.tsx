@@ -59,14 +59,6 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
         }
     }, [state, toast]);
 
-    const handleAction = (status: 'approved' | 'rejected') => {
-        const formData = new FormData();
-        formData.append('userId', userId);
-        formData.append('workoutId', workout.id);
-        formData.append('status', status);
-        formAction(formData);
-    };
-
     return (
         <div className="flex items-center gap-2">
             <StatusBadge status={workout.status} />
@@ -79,16 +71,30 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     {workout.status !== 'approved' && (
-                        <DropdownMenuItem onClick={() => handleAction('approved')}>
-                            <Check className="mr-2 h-4 w-4 text-green-500" />
-                            <span>Aprovar</span>
-                        </DropdownMenuItem>
+                         <form action={formAction}>
+                            <input type="hidden" name="userId" value={userId} />
+                            <input type="hidden" name="workoutId" value={workout.id} />
+                            <input type="hidden" name="status" value="approved" />
+                            <DropdownMenuItem asChild>
+                                <button type="submit" className="w-full" disabled={isPending}>
+                                    <Check className="mr-2 h-4 w-4 text-green-500" />
+                                    <span>Aprovar</span>
+                                </button>
+                            </DropdownMenuItem>
+                        </form>
                     )}
                     {workout.status !== 'rejected' && (
-                        <DropdownMenuItem onClick={() => handleAction('rejected')}>
-                            <X className="mr-2 h-4 w-4 text-red-500" />
-                            <span>Rejeitar</span>
-                        </DropdownMenuItem>
+                        <form action={formAction}>
+                            <input type="hidden" name="userId" value={userId} />
+                            <input type="hidden" name="workoutId" value={workout.id} />
+                            <input type="hidden" name="status" value="rejected" />
+                             <DropdownMenuItem asChild>
+                                <button type="submit" className="w-full" disabled={isPending}>
+                                    <X className="mr-2 h-4 w-4 text-red-500" />
+                                    <span>Rejeitar</span>
+                                </button>
+                            </DropdownMenuItem>
+                        </form>
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
@@ -218,3 +224,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
