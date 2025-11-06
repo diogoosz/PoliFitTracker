@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, CheckCircle, Loader2 } from "lucide-react";
 import type { Workout } from '@/lib/types';
-import { isSameMonth } from 'date-fns';
+import { isSameMonth, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface WorkoutCalendarProps {
@@ -18,21 +17,36 @@ interface WorkoutCalendarProps {
 export function WorkoutCalendar({ userWorkouts, isLoading }: WorkoutCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const workoutDates = useMemo(() => {
-      if (!userWorkouts) return [];
-      return userWorkouts.reduce((acc: Date[], w) => {
+  const { approvedDates, pendingDates, rejectedDates } = useMemo(() => {
+    const approved: Date[] = [];
+    const pending: Date[] = [];
+    const rejected: Date[] = [];
+    
+    if (userWorkouts) {
+      userWorkouts.forEach(w => {
         if (w.startTime && typeof w.startTime.toDate === 'function') {
-          acc.push(w.startTime.toDate());
+          const date = w.startTime.toDate();
+          if (w.status === 'approved') {
+            approved.push(date);
+          } else if (w.status === 'rejected') {
+            rejected.push(date);
+          } else { // pending
+            pending.push(date);
+          }
         }
-        return acc;
-      }, []);
+      });
+    }
+    return { approvedDates: approved, pendingDates: pending, rejectedDates: rejected };
   }, [userWorkouts]);
-
 
   const workoutsThisMonth = useMemo(() => {
     if (!userWorkouts) return 0;
+    // We only count approved workouts
     return userWorkouts.filter(w => 
-      w.startTime && typeof w.startTime.toDate === 'function' && isSameMonth(w.startTime.toDate(), currentMonth)
+      w.status === 'approved' &&
+      w.startTime && 
+      typeof w.startTime.toDate === 'function' && 
+      isSameMonth(w.startTime.toDate(), currentMonth)
     ).length;
   }, [userWorkouts, currentMonth]);
 
@@ -42,13 +56,13 @@ export function WorkoutCalendar({ userWorkouts, isLoading }: WorkoutCalendarProp
         <div className="flex items-center justify-between">
             <div>
                 <CardTitle className="font-headline text-xl">Meu Progresso</CardTitle>
-                <CardDescription>Seu histórico de treinos.</CardDescription>
+                <CardDescription>Seu histórico de treinos aprovados.</CardDescription>
             </div>
             <CalendarDays className="h-6 w-6 text-muted-foreground" />
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        {isLoading && !userWorkouts ? ( // Show loader only on initial load
+        {isLoading && !userWorkouts ? (
           <div className="flex items-center justify-center h-[335px]">
             <Loader2 className="animate-spin" />
           </div>
@@ -56,14 +70,18 @@ export function WorkoutCalendar({ userWorkouts, isLoading }: WorkoutCalendarProp
           <Calendar
             locale={ptBR}
             mode="multiple"
-            selected={workoutDates}
+            selected={[...approvedDates, ...pendingDates, ...rejectedDates]}
             onMonthChange={setCurrentMonth}
             className="rounded-md"
             modifiers={{
-              attended: workoutDates
+              approved: approvedDates,
+              pending: pendingDates,
+              rejected: rejectedDates,
             }}
             modifiersClassNames={{
-              attended: 'day-attended'
+              approved: 'day-approved',
+              pending: 'day-pending',
+              rejected: 'day-rejected',
             }}
           />
         )}

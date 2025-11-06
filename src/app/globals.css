@@ -77,6 +77,31 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Treino Pendente (Azul) */
+  .day-pending {
+    @apply bg-primary text-primary-foreground;
+  }
+  .day-pending:hover {
+    @apply bg-primary/90 text-primary-foreground;
+  }
+
+  /* Treino Aprovado (Verde) */
+  .day-approved {
+    @apply bg-green-500 text-white;
+  }
+  .day-approved:hover {
+    @apply bg-green-500/90 text-white;
+  }
+
+  /* Treino Rejeitado (Vermelho) */
+  .day-rejected {
+    @apply bg-red-500 text-white;
+  }
+  .day-rejected:hover {
+    @apply bg-red-500/90 text-white;
+  }
+
+  /* Backwards compatibility */
   .day-attended {
     @apply bg-primary text-primary-foreground;
   }

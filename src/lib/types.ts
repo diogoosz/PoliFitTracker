@@ -8,6 +8,8 @@ export interface User {
   isAdmin: boolean;
 }
 
+export type WorkoutStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Workout {
   id: string;
   userId: string;
@@ -16,4 +18,5 @@ export interface Workout {
   duration: number; // in seconds
   photo1DataUrl: string;
   photo2DataUrl: string;
+  status: WorkoutStatus;
 }

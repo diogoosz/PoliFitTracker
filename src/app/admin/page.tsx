@@ -1,24 +1,94 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useActionState, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import type { User, Workout } from '@/lib/types';
+import type { User, Workout, WorkoutStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { Users, Loader2 } from 'lucide-react';
+import { Users, Loader2, Check, X, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { UserWorkoutCount } from '@/components/user-workout-count';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { updateWorkoutStatus } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface UserWithWorkouts extends User {
   workouts: Workout[];
 }
+
+function StatusBadge({ status }: { status: WorkoutStatus }) {
+    const statusConfig = {
+        pending: { icon: Clock, label: 'Pendente', className: 'bg-blue-500 hover:bg-blue-500/80' },
+        approved: { icon: Check, label: 'Aprovado', className: 'bg-green-500 hover:bg-green-500/80' },
+        rejected: { icon: X, label: 'Rejeitado', className: 'bg-red-500 hover:bg-red-500/80' },
+    };
+    const { icon: Icon, label, className } = statusConfig[status];
+    return (
+        <Badge className={cn("text-xs", className)}>
+            <Icon className="mr-1 h-3 w-3" />
+            {label}
+        </Badge>
+    );
+}
+
+function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: string }) {
+    const [state, formAction, isPending] = useActionState(updateWorkoutStatus, { message: "", type: "" });
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (state.type === 'error' && state.message) {
+            toast({ title: "Erro", description: state.message, variant: 'destructive' });
+        }
+        if (state.type === 'success' && state.message) {
+            toast({ title: "Sucesso", description: state.message });
+        }
+    }, [state, toast]);
+
+    const createFormData = (status: 'approved' | 'rejected') => {
+        const formData = new FormData();
+        formData.append('userId', userId);
+        formData.append('workoutId', workout.id);
+        formData.append('status', status);
+        return formData;
+    };
+    
+    if (workout.status !== 'pending') {
+        return <StatusBadge status={workout.status} />;
+    }
+
+    return (
+        <form className="flex items-center gap-2">
+            <Button
+                size="sm"
+                variant="outline"
+                className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
+                onClick={() => formAction(createFormData('approved'))}
+                disabled={isPending}
+            >
+                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <ThumbsUp className="h-4 w-4" />}
+            </Button>
+            <Button
+                size="sm"
+                variant="outline"
+                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                onClick={() => formAction(createFormData('rejected'))}
+                disabled={isPending}
+            >
+                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <ThumbsDown className="h-4 w-4" />}
+            </Button>
+        </form>
+    );
+}
+
 
 function UserWorkouts({ user }: { user: User }) {
   const firestore = useFirestore();
@@ -41,8 +111,13 @@ function UserWorkouts({ user }: { user: User }) {
     <div className="space-y-6">
       {workouts.map(workout => (
         <div key={workout.id} className="p-4 border rounded-lg bg-background">
-            <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-            <p className="text-sm text-muted-foreground mb-4">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+            <div className="flex justify-between items-start mb-2">
+                <div>
+                    <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                    <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+                </div>
+                 <AdminWorkoutActions workout={workout} userId={user.id} />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {workout.photo1DataUrl && <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
                 {workout.photo2DataUrl && <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}

@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { initializeServerApp } from "@/firebase/server-init";
 import { Timestamp }from 'firebase-admin/firestore';
+import { revalidatePath } from "next/cache";
 
 // Initialize Firebase Admin SDK for server-side operations
 const { firestore } = initializeServerApp();
@@ -50,8 +51,12 @@ export async function logWorkout(prevState: any, formData: FormData) {
         duration: Math.floor(duration),
         photo1DataUrl: photo1,
         photo2DataUrl: photo2,
+        status: 'pending', // Default status
     });
     
+    revalidatePath('/dashboard');
+    revalidatePath('/admin');
+
     return {
       message: "Treino registrado com sucesso! Ótimo trabalho!",
       type: "success" as const,
@@ -62,6 +67,52 @@ export async function logWorkout(prevState: any, formData: FormData) {
     return {
         message: `Falha ao registrar o treino: ${errorMessage}`,
         type: "error" as const,
+    };
+  }
+}
+
+const updateStatusSchema = z.object({
+  userId: z.string().min(1),
+  workoutId: z.string().min(1),
+  status: z.enum(['approved', 'rejected']),
+});
+
+export async function updateWorkoutStatus(
+  prevState: any,
+  formData: FormData
+) {
+  const validatedFields = updateStatusSchema.safeParse({
+    userId: formData.get("userId"),
+    workoutId: formData.get("workoutId"),
+    status: formData.get("status"),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Dados inválidos para atualização.",
+      type: "error" as const,
+    };
+  }
+
+  const { userId, workoutId, status } = validatedFields.data;
+
+  try {
+    const workoutRef = firestore.doc(`users/${userId}/workouts/${workoutId}`);
+    await workoutRef.update({ status });
+    
+    // Revalidate paths to refresh data on the client
+    revalidatePath('/admin');
+    revalidatePath('/dashboard');
+
+    return {
+      message: `Treino ${status === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso.`,
+      type: "success" as const,
+    };
+  } catch (error) {
+    console.error("Error updating workout status: ", error);
+    return {
+      message: "Falha ao atualizar o status do treino.",
+      type: "error" as const,
     };
   }
 }

@@ -75,6 +75,11 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the second verification photo stored in Firebase Storage."
+        },
+        "status": {
+            "type": "string",
+            "description": "The approval status of the workout.",
+            "enum": ["pending", "approved", "rejected"]
         }
       },
       "required": [
@@ -84,7 +89,8 @@
         "endTime",
         "duration",
         "photo1Url",
-        "photo2Url"
+        "photo2Url",
+        "status"
       ]
     }
   },
