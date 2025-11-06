@@ -44,6 +44,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
   const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
+  const photoNotificationTimers = useRef<[NodeJS.Timeout | null, NodeJS.Timeout | null]>([null, null]);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -55,38 +56,27 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         workout.startTime && isToday(workout.startTime.toDate())
     );
   }, [userWorkouts]);
+  
+  // Register Service Worker on mount
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.error('Service Worker registration failed:', err);
+      });
+    }
+  }, []);
 
-  const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime || isModalOpen) {
-      return;
+  const showNotification = (title: string, options: NotificationOptions) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        payload: { title, options }
+      });
+    } else {
+        // Fallback for when SW is not ready
+        new Notification(title, options);
     }
-  
-    const now = Date.now();
-    const elapsedTimeMs = now - startTime;
-  
-    const tryToShowPrompt = (index: 0 | 1) => {
-      if (photos[index] === null && elapsedTimeMs >= photoPromptTimes[index]) {
-        setIsModalOpen(true);
-        setPhotoPromptIndex(index);
-        
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            new Notification('Poli Fit Tracker', {
-                body: `Hora da sua ${index + 1}ª verificação com foto!`,
-                icon: '/icon.svg'
-            });
-        }
-        return true; 
-      }
-      return false;
-    };
-  
-    if (photos[0] === null) {
-      tryToShowPrompt(0);
-    } else if (photos[1] === null) {
-      tryToShowPrompt(1);
-    }
-  
-  }, [status, startTime, photos, photoPromptTimes, isModalOpen]);
+  };
 
 
   const resetWorkout = useCallback(() => {
@@ -95,18 +85,25 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoPromptTimes([0,0]);
+
     if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
     }
+    // Clear any scheduled notification timers
+    photoNotificationTimers.current.forEach(timer => {
+        if (timer) clearTimeout(timer);
+    });
+    photoNotificationTimers.current = [null, null];
   }, []);
 
-
   useEffect(() => {
+    // This effect only handles the on-screen timer display
     if (status === 'running') {
       intervalRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
-        checkPhotoPrompts();
+        if (startTime) {
+           setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+        }
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -114,7 +111,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, checkPhotoPrompts]);
+  }, [status, startTime]);
+
 
   useEffect(() => {
     if (formState.type === 'success' && status === 'stopped') {
@@ -139,42 +137,61 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => clearTimeout(resetTimer);
   }, [status, resetWorkout]);
 
+  const schedulePhotoPrompts = (promptTimes: [number, number]) => {
+     photoNotificationTimers.current.forEach(timer => {
+        if (timer) clearTimeout(timer);
+    });
+
+    if (Notification.permission !== 'granted') return;
+
+    promptTimes.forEach((time, index) => {
+        if (time > 0) {
+            photoNotificationTimers.current[index] = setTimeout(() => {
+                showNotification('Poli Fit Tracker', {
+                    body: `Hora da sua ${index + 1}ª verificação com foto!`,
+                    icon: '/icon.svg',
+                    tag: `photo-prompt-${index}`
+                });
+                setIsModalOpen(true);
+                setPhotoPromptIndex(index as 0 | 1);
+            }, time);
+        }
+    });
+  }
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    photoNotificationTimers.current.forEach(timer => {
+        if (timer) clearTimeout(timer);
+    });
   }, []);
   
   const handleStart = async () => {
-    // First, check if notifications are supported at all.
     if (typeof window === 'undefined' || !('Notification' in window)) {
         toast({
             title: "Notificações Não Suportadas",
-            description: "Seu navegador não suporta notificações. O cronômetro funcionará, mas sem alertas.",
+            description: "Seu navegador não suporta notificações, mas o cronômetro funcionará.",
             variant: "default",
         });
-    } else {
-        // If they are supported, check for permission.
-        if (Notification.permission === "default") {
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                toast({
-                    title: "Notificações Desativadas",
-                    description: "Você não receberá lembretes para as fotos. Para ativar, mude as permissões do site no seu navegador.",
-                    variant: "default",
-                });
-            }
-        } else if (Notification.permission === 'denied') {
-             toast({
-                title: "Notificações Bloqueadas",
-                description: "As notificações estão bloqueadas. Para ativá-las, mude as permissões do site nas configurações do seu navegador.",
-                variant: "destructive",
+    } else if (Notification.permission === "default") {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            toast({
+                title: "Notificações Desativadas",
+                description: "Você não receberá lembretes para as fotos.",
+                variant: "default",
             });
         }
+    } else if (Notification.permission === 'denied') {
+         toast({
+            title: "Notificações Bloqueadas",
+            description: "As notificações estão bloqueadas nas configurações do seu navegador.",
+            variant: "destructive",
+        });
     }
-
 
     if(hasTrainedToday) {
         toast({
@@ -190,10 +207,12 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     
-    setPhotoPromptTimes([
+    const times: [number, number] = [
       getRandomTimeInMs(5, 15), 
       getRandomTimeInMs(25, 45)
-    ]);
+    ];
+    setPhotoPromptTimes(times);
+    schedulePhotoPrompts(times);
   };
 
   const handleStop = () => {
