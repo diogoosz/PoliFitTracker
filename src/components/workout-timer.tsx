@@ -96,11 +96,18 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   
     // Check for the first photo, if not taken
     if (photos[0] === null) {
-      tryToShowPrompt(0);
+      if(tryToShowPrompt(0)) {
+         isCheckingPhotosRef.current = false;
+         return;
+      }
     } 
+    
     // If the first is taken, check for the second
-    else if (photos[1] === null) {
-      tryToShowPrompt(1);
+    if (photos[1] === null) {
+      if(tryToShowPrompt(1)) {
+        isCheckingPhotosRef.current = false;
+        return;
+      }
     }
   
     // Release the lock
