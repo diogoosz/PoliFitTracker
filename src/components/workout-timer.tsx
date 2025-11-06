@@ -44,6 +44,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
   const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
+  
+  const isCheckingPhotosRef = useRef(false);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -65,30 +67,45 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
-  const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime || isModalOpen) return;
-
+ const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || isModalOpen || isCheckingPhotosRef.current) {
+      return;
+    }
+  
+    isCheckingPhotosRef.current = true;
+  
     const now = Date.now();
     const elapsedTimeMs = now - startTime;
-
-    const tryToShowPrompt = (index: 0 | 1, promptTime: number) => {
-        if (photos[index] === null && elapsedTimeMs >= promptTime) {
-          if (document.hidden) {
-            showNotification(`Hora da sua ${index + 1}ª verificação com foto!`);
-          } else {
+  
+    const tryToShowPrompt = (index: 0 | 1) => {
+      const promptTime = photoPromptTimes[index];
+      if (photos[index] === null && elapsedTimeMs >= promptTime) {
+        if (document.hidden) {
+          showNotification(`Hora da sua ${index + 1}ª verificação com foto!`);
+        } else {
+          // Prevent showing a new modal if one is already open for a different prompt
+          if (!isModalOpen) {
             setIsModalOpen(true);
             setPhotoPromptIndex(index);
           }
-          return true; // Indicates a prompt was shown or a notification sent
         }
-        return false;
+        return true; 
+      }
+      return false;
     };
-    
-    // Try to show first prompt, if it is shown, we stop to not bombard the user
-    if (tryToShowPrompt(0, photoPromptTimes[0])) return;
-    // If first is done, try to show the second
-    if (tryToShowPrompt(1, photoPromptTimes[1])) return;
-
+  
+    // Check for the first photo, if not taken
+    if (photos[0] === null) {
+      tryToShowPrompt(0);
+    } 
+    // If the first is taken, check for the second
+    else if (photos[1] === null) {
+      tryToShowPrompt(1);
+    }
+  
+    // Release the lock
+    isCheckingPhotosRef.current = false;
+  
   }, [status, startTime, photos, photoPromptTimes, isModalOpen, showNotification]);
   
   const handleVisibilityChange = useCallback(() => {
@@ -238,18 +255,23 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
   const handlePhotoTaken = (photoDataUrl: string) => {
     if (photoPromptIndex !== null) {
-      const newPhotos: [string | null, string | null] = [...photos];
-      newPhotos[photoPromptIndex] = photoDataUrl;
-      setPhotos(newPhotos);
+      setPhotos(prevPhotos => {
+        const newPhotos: [string | null, string | null] = [...prevPhotos];
+        if (newPhotos[photoPromptIndex] === null) {
+            newPhotos[photoPromptIndex] = photoDataUrl;
+        }
+        return newPhotos;
+      });
     }
     setIsModalOpen(false);
     setPhotoPromptIndex(null);
-    // Immediately check if the next prompt is also due
-    // Use a small timeout to allow state to update and modal to close
+    
+    // Check if the next prompt is due immediately after this one
     setTimeout(() => {
         checkPhotoPrompts();
     }, 100);
   };
+
 
   const photosTakenCount = photos.filter(p => p !== null).length;
 
