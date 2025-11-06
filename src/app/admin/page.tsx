@@ -127,27 +127,31 @@ function UserWorkouts({ user }: { user: User }) {
 
   return (
     <div className="space-y-6">
-      {workouts.map(workout => (
-        <div key={workout.id} className="p-4 border rounded-lg bg-background">
-            <div className="flex justify-between items-start mb-2">
-                <div>
-                    <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                    <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
-                    {workout.reviewerName && workout.reviewedAt && (
-                        <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
-                            <UserCheck className="h-3 w-3" />
-                            Revisado por {workout.reviewerName} em {format(workout.reviewedAt.toDate(), "dd/MM/yy 'às' HH:mm")}
-                        </p>
-                    )}
+      {workouts.map(workout => {
+        const reviewActionText = workout.status === 'approved' ? 'Aprovado' : 'Reprovado';
+        
+        return (
+            <div key={workout.id} className="p-4 border rounded-lg bg-background">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                        <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+                        {workout.reviewerName && workout.reviewedAt && (
+                            <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
+                                <UserCheck className="h-3 w-3" />
+                                {reviewActionText} por {workout.reviewerName} em {format(workout.reviewedAt.toDate(), "dd/MM/yy 'às' HH:mm")}
+                            </p>
+                        )}
+                    </div>
+                    <AdminWorkoutActions workout={workout} userId={user.id} />
                 </div>
-                 <AdminWorkoutActions workout={workout} userId={user.id} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {workout.photo1DataUrl && <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                    {workout.photo2DataUrl && <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {workout.photo1DataUrl && <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
-                {workout.photo2DataUrl && <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
-            </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
