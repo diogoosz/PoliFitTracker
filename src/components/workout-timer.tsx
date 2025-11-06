@@ -126,7 +126,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         description: formState.message,
         variant: 'destructive',
       });
-      // Do not reset automatically, allow user to see the error and maybe retry
     }
   }, [formState, toast, onWorkoutLogged, status]);
 
@@ -149,12 +148,33 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, []);
   
   const handleStart = async () => {
-    // First, check for notification permission and request if needed
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        await Notification.requestPermission();
-      }
+    // First, check if notifications are supported at all.
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+        toast({
+            title: "Notificações Não Suportadas",
+            description: "Seu navegador não suporta notificações. O cronômetro funcionará, mas sem alertas.",
+            variant: "default",
+        });
+    } else {
+        // If they are supported, check for permission.
+        if (Notification.permission === "default") {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                toast({
+                    title: "Notificações Desativadas",
+                    description: "Você não receberá lembretes para as fotos. Para ativar, mude as permissões do site no seu navegador.",
+                    variant: "default",
+                });
+            }
+        } else if (Notification.permission === 'denied') {
+             toast({
+                title: "Notificações Bloqueadas",
+                description: "As notificações estão bloqueadas. Para ativá-las, mude as permissões do site nas configurações do seu navegador.",
+                variant: "destructive",
+            });
+        }
     }
+
 
     if(hasTrainedToday) {
         toast({
@@ -170,8 +190,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     
-    // Set random times for photo prompts right at the start
-    // For testing, let's make them appear quickly within the 1-minute window
     setPhotoPromptTimes([
       getRandomTimeInMs(5, 15), 
       getRandomTimeInMs(25, 45)
