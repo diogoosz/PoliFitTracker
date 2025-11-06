@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
 
-const MIN_WORKOUT_SECONDS = 2 * 60; // 2 minutes
+const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -68,6 +68,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, []);
 
   useEffect(() => {
+    if (status === 'idle') return;
+
     if (formState.type === 'success') {
       setStatus('success');
       onWorkoutLogged(); // Notify parent that a new workout has been logged
@@ -79,7 +81,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       });
       resetWorkout();
     }
-  }, [formState, toast, onWorkoutLogged, resetWorkout]);
+  }, [formState, toast, onWorkoutLogged, resetWorkout, status]);
 
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
@@ -117,9 +119,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   // Effect to set photo prompt times ONLY when the timer starts
   useEffect(() => {
     if (status === 'running' && startTime) {
-      // For 2 minute test: 10s to 50s, then 60s to 110s
-      const prompt1 = startTime + getRandomTime(10 * 1000, 50 * 1000); 
-      const prompt2 = startTime + getRandomTime(60 * 1000, 110 * 1000);
+      // For 40 minute workout: 5-15 mins, then 25-35 mins
+      const prompt1 = startTime + getRandomTime(5 * 60 * 1000, 15 * 60 * 1000); 
+      const prompt2 = startTime + getRandomTime(25 * 60 * 1000, 35 * 60 * 1000);
       setPhotoPromptTimes([prompt1, prompt2]);
     }
   }, [status, startTime]);

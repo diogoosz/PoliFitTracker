@@ -10,7 +10,7 @@ const { firestore } = initializeServerApp();
 
 const workoutSchema = z.object({
   userId: z.string().min(1, "O ID do usuário é obrigatório."),
-  duration: z.number().min(120, "O treino deve ter pelo menos 2 minutos."), // 2 minutes in seconds
+  duration: z.number().min(2400, "O treino deve ter pelo menos 40 minutos."), // 40 minutes in seconds
   photo1: z.string().min(1, "A foto 1 é obrigatória."),
   photo2: z.string().min(1, "A foto 2 é obrigatória."),
 });
