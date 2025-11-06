@@ -25,7 +25,9 @@ const formatTime = (totalSeconds: number) => {
 };
 
 // Helper for random time
-const getRandomTime = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min);
+const getRandomTimeInMs = (minMinutes: number, maxMinutes: number) => 
+  (Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes) * 60 * 1000;
+
 
 interface WorkoutTimerProps {
   onWorkoutLogged: () => void;
@@ -66,18 +68,47 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
-  useEffect(() => {
-    if (status === 'running' && startTime && !isModalOpen) {
-      const now = Date.now();
-      if (photos[0] === null && now >= photoPromptTimes[0]) {
-        setIsModalOpen(true);
-        setPhotoPromptIndex(0);
-      } else if (photos[0] !== null && photos[1] === null && now >= photoPromptTimes[1]) {
-        setIsModalOpen(true);
-        setPhotoPromptIndex(1);
-      }
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || isModalOpen) return;
+
+    const now = Date.now();
+    // Check for first photo
+    if (photos[0] === null && now >= startTime + photoPromptTimes[0]) {
+      setIsModalOpen(true);
+      setPhotoPromptIndex(0);
+    } 
+    // Check for second photo (only if first is taken)
+    else if (photos[0] !== null && photos[1] === null && now >= startTime + photoPromptTimes[1]) {
+      setIsModalOpen(true);
+      setPhotoPromptIndex(1);
     }
-  }, [elapsedSeconds, status, startTime, photos, photoPromptTimes, isModalOpen]);
+  }, [status, startTime, photos, photoPromptTimes, isModalOpen]);
+
+  // Effect to check prompts every second when timer is running
+  useEffect(() => {
+    if (status === 'running') {
+      const timer = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+        checkPhotoPrompts();
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [status, checkPhotoPrompts]);
+
+  // Effect to handle app visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // When user returns to the tab, immediately check for missed prompts
+        checkPhotoPrompts();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [checkPhotoPrompts]);
+
 
   useEffect(() => {
     if (formState.type === 'success' && status === 'stopped') {
@@ -111,28 +142,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
   
-
-  useEffect(() => {
-    if (status === "running") {
-      intervalRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      cleanup();
-    }
-
-    return cleanup;
-  }, [status, cleanup]);
-  
-  // Effect to set photo prompt times ONLY when the timer starts
-  useEffect(() => {
-    if (status === 'running' && startTime && photoPromptTimes[0] === 0) {
-      const prompt1 = startTime + getRandomTime(5 * 60 * 1000, 15 * 60 * 1000); 
-      const prompt2 = startTime + getRandomTime(25 * 60 * 1000, 35 * 60 * 1000);
-      setPhotoPromptTimes([prompt1, prompt2]);
-    }
-  }, [status, startTime, photoPromptTimes]);
-
   const handleStart = () => {
     if(hasTrainedToday) {
         toast({
@@ -142,11 +151,16 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         });
         return;
     }
+    const now = Date.now();
     setStatus("running");
-    setStartTime(Date.now());
+    setStartTime(now);
     setElapsedSeconds(0);
     setPhotos([null, null]);
-    setPhotoPromptTimes([0,0]);
+    // Set random times for photo prompts right at the start
+    setPhotoPromptTimes([
+      getRandomTimeInMs(5, 15), 
+      getRandomTimeInMs(25, 35)
+    ]);
   };
 
   const handleStop = () => {
@@ -201,6 +215,13 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
     setIsModalOpen(false);
     setPhotoPromptIndex(null);
+
+    // After taking a photo, immediately re-check if the next prompt is already due.
+    // This handles the case where both prompts were missed.
+    // We need a slight delay to allow state to update.
+    setTimeout(() => {
+      checkPhotoPrompts();
+    }, 100);
   };
 
   const photosTakenCount = photos.filter(p => p !== null).length;
@@ -273,3 +294,5 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
+
+    
