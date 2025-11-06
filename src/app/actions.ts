@@ -6,12 +6,9 @@ import { initializeServerApp } from "@/firebase/server-init";
 import { Timestamp }from 'firebase-admin/firestore';
 import { revalidatePath } from "next/cache";
 
-// Initialize Firebase Admin SDK for server-side operations
-const { firestore } = initializeServerApp();
-
 const workoutSchema = z.object({
   userId: z.string().min(1, "O ID do usuário é obrigatório."),
-  duration: z.number().min(2400, "O treino não atingiu a duração mínima."), // 40 minutes in seconds (40 * 60)
+  duration: z.number().min(2400, "O treino não atingiu a duração mínima para ser registrado."), // 40 minutes in seconds
   photo1: z.string().min(1, "A foto 1 é obrigatória."),
   photo2: z.string().min(1, "A foto 2 é obrigatória."),
 });
@@ -37,13 +34,12 @@ export async function logWorkout(prevState: any, formData: FormData) {
   const { userId, duration, photo1, photo2 } = validatedFields.data;
   
   try {
+    const { firestore } = initializeServerApp();
     const startTime = Timestamp.now();
-    // Correctly calculate endTime based on duration in seconds
     const endTime = Timestamp.fromMillis(startTime.toMillis() + duration * 1000);
 
     const workoutCollectionRef = firestore.collection(`users/${userId}/workouts`);
     
-    // Create the workout document with the photo data URLs directly
     await workoutCollectionRef.add({
         userId,
         startTime,
@@ -51,7 +47,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
         duration: Math.floor(duration),
         photo1DataUrl: photo1,
         photo2DataUrl: photo2,
-        status: 'pending', // Default status
+        status: 'pending',
     });
     
     revalidatePath('/dashboard');
@@ -97,10 +93,10 @@ export async function updateWorkoutStatus(
   const { userId, workoutId, status } = validatedFields.data;
 
   try {
+    const { firestore } = initializeServerApp();
     const workoutRef = firestore.doc(`users/${userId}/workouts/${workoutId}`);
     await workoutRef.update({ status });
     
-    // Revalidate paths to refresh data on the client
     revalidatePath('/admin');
     revalidatePath('/dashboard');
 
