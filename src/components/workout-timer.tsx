@@ -11,6 +11,8 @@ import PhotoCaptureModal from "./photo-capture-modal";
 import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
+import { IosInstallPrompt } from "./ios-install-prompt";
+import { ToastAction } from "@/components/ui/toast"
 
 const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
 
@@ -41,6 +43,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isIosInstallPromptOpen, setIsIosInstallPromptOpen] = useState(false);
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
   const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
@@ -174,6 +177,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const handleStart = async () => {
     if (typeof window === 'undefined') return;
 
+    // Check for iOS Safari PWA
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = ('standalone' in navigator) && (navigator as any).standalone;
+
     if ('Notification' in window) {
       if (Notification.permission === "default") {
           const permission = await Notification.requestPermission();
@@ -191,12 +198,13 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
               variant: "destructive",
           });
       }
-    } else {
+    } else if (isIOS && !isStandalone) {
         toast({
             title: "Ative as Notificações",
-            description: "Para receber lembretes no iOS, adicione o app à sua Tela de Início: Toque no ícone de Compartilhar e depois em 'Adicionar à Tela de Início'.",
+            description: "Para receber lembretes, adicione o app à sua Tela de Início.",
             variant: "default",
             duration: 10000,
+            action: <ToastAction altText="Ver Tutorial" onClick={() => setIsIosInstallPromptOpen(true)}>Ver Tutorial</ToastAction>,
         });
     }
 
@@ -351,7 +359,13 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           onClose={() => setIsModalOpen(false)}
           onPhotoTaken={handlePhotoTaken}
         />
+        <IosInstallPrompt
+          isOpen={isIosInstallPromptOpen}
+          onClose={() => setIsIosInstallPromptOpen(false)}
+        />
       </CardContent>
     </Card>
   );
 }
+
+    
