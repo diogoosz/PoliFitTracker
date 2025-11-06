@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import type { User, Workout, WorkoutStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { Users, Loader2, Check, X, Clock, MoreHorizontal } from 'lucide-react';
+import { Users, Loader2, Check, X, Clock, MoreHorizontal, UserCheck } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { updateWorkoutStatus } from '@/app/client-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,11 +51,17 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
     const [isPending, setIsPending] = useState(false);
     const { toast } = useToast();
     const firestore = useFirestore();
+    const { user: adminUser } = useAuth(); // Get the currently logged-in admin user
 
     const handleUpdateStatus = async (status: 'approved' | 'rejected') => {
+        if (!adminUser) {
+            toast({ title: "Erro", description: "Administrador não autenticado.", variant: 'destructive' });
+            return;
+        }
+
         setIsPending(true);
         try {
-            await updateWorkoutStatus(firestore, userId, workout.id, status);
+            await updateWorkoutStatus(firestore, userId, workout.id, status, adminUser.name);
             toast({
                 title: "Sucesso",
                 description: `Treino ${status === 'approved' ? 'aprovado' : 'rejeitado'}.`,
@@ -126,6 +133,12 @@ function UserWorkouts({ user }: { user: User }) {
                 <div>
                     <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
                     <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
+                    {workout.reviewerName && (
+                        <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
+                            <UserCheck className="h-3 w-3" />
+                            Revisado por {workout.reviewerName} em {format(workout.reviewedAt.toDate(), "dd/MM/yy 'às' HH:mm")}
+                        </p>
+                    )}
                 </div>
                  <AdminWorkoutActions workout={workout} userId={user.id} />
             </div>

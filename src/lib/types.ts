@@ -19,4 +19,6 @@ export interface Workout {
   photo1DataUrl: string;
   photo2DataUrl: string;
   status: WorkoutStatus;
+  reviewerName?: string;
+  reviewedAt?: Timestamp;
 }

@@ -80,6 +80,15 @@
             "type": "string",
             "description": "The approval status of the workout.",
             "enum": ["pending", "approved", "rejected"]
+        },
+        "reviewerName": {
+            "type": "string",
+            "description": "Name of the admin who reviewed the workout."
+        },
+        "reviewedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of when the workout was reviewed."
         }
       },
       "required": [
