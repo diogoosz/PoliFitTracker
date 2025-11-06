@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useActionState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { UserWorkoutCount } from '@/components/user-workout-count';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { updateWorkoutStatus } from '@/app/actions';
+import { updateWorkoutStatus } from '@/app/client-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -47,17 +47,29 @@ function StatusBadge({ status }: { status: WorkoutStatus }) {
 }
 
 function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: string }) {
-    const [state, formAction, isPending] = useActionState(updateWorkoutStatus, { message: "", type: "" });
+    const [isPending, setIsPending] = useState(false);
     const { toast } = useToast();
+    const firestore = useFirestore();
 
-    useEffect(() => {
-        if (state.type === 'error' && state.message) {
-            toast({ title: "Erro", description: state.message, variant: 'destructive' });
+    const handleUpdateStatus = async (status: 'approved' | 'rejected') => {
+        setIsPending(true);
+        try {
+            await updateWorkoutStatus(firestore, userId, workout.id, status);
+            toast({
+                title: "Sucesso",
+                description: `Treino ${status === 'approved' ? 'aprovado' : 'rejeitado'}.`,
+            });
+        } catch (error) {
+            console.error("Error updating status:", error);
+            toast({
+                title: "Erro",
+                description: "Falha ao atualizar o status do treino. Verifique o console para mais detalhes.",
+                variant: 'destructive',
+            });
+        } finally {
+            setIsPending(false);
         }
-        if (state.type === 'success' && state.message) {
-            toast({ title: "Sucesso", description: state.message });
-        }
-    }, [state, toast]);
+    };
 
     return (
         <div className="flex items-center gap-2">
@@ -71,30 +83,16 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     {workout.status !== 'approved' && (
-                         <form action={formAction}>
-                            <input type="hidden" name="userId" value={userId} />
-                            <input type="hidden" name="workoutId" value={workout.id} />
-                            <input type="hidden" name="status" value="approved" />
-                            <DropdownMenuItem asChild>
-                                <button type="submit" className="w-full" disabled={isPending}>
-                                    <Check className="mr-2 h-4 w-4 text-green-500" />
-                                    <span>Aprovar</span>
-                                </button>
-                            </DropdownMenuItem>
-                        </form>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus('approved')} disabled={isPending}>
+                            <Check className="mr-2 h-4 w-4 text-green-500" />
+                            <span>Aprovar</span>
+                        </DropdownMenuItem>
                     )}
                     {workout.status !== 'rejected' && (
-                        <form action={formAction}>
-                            <input type="hidden" name="userId" value={userId} />
-                            <input type="hidden" name="workoutId" value={workout.id} />
-                            <input type="hidden" name="status" value="rejected" />
-                             <DropdownMenuItem asChild>
-                                <button type="submit" className="w-full" disabled={isPending}>
-                                    <X className="mr-2 h-4 w-4 text-red-500" />
-                                    <span>Rejeitar</span>
-                                </button>
-                            </DropdownMenuItem>
-                        </form>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus('rejected')} disabled={isPending}>
+                            <X className="mr-2 h-4 w-4 text-red-500" />
+                            <span>Rejeitar</span>
+                        </DropdownMenuItem>
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
@@ -224,5 +222,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

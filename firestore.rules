@@ -9,47 +9,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to the collection of all users.
-     * @path /users
-     * @allow (list) Only authenticated users who are marked as admins can list all users. The `get()` call to the user's own profile is efficient and secure for this role-based access.
-     * @deny (list) Regular users cannot list all users.
-     */
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      // Check if the user making the request has the isAdmin flag set to true in their own user document.
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      function isAdmin() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      }
-      
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
-    /**
-     * @description Controls access to workout documents within a user's profile.
-     * @path /users/{userId}/workouts/{workoutId}
-     * @allow (get, list) User with matching UID or an admin can read and list workout documents.
-     * @allow (create, update, delete) Only the owner can write or delete their own workout documents.
-     * @principle Enforces document ownership for write operations, but allows admin read access.
-     */
     match /users/{userId}/workouts/{workoutId} {
-       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      function isAdmin() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      }
-
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
-      allow update: if (isOwner(userId) || isAdmin()) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      // Admin can update any workout (e.g., to approve/reject). The owner can't update.
+      allow update: if isAdmin();
+      allow delete: if isOwner(userId);
     }
   }
 }
