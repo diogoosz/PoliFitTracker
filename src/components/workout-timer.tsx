@@ -44,8 +44,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
   const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
-  const photoNotificationTimers = useRef<[NodeJS.Timeout | null, NodeJS.Timeout | null]>([null, null]);
-
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -56,7 +55,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         workout.startTime && isToday(workout.startTime.toDate())
     );
   }, [userWorkouts]);
-  
+
   // Register Service Worker on mount
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -65,19 +64,47 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       });
     }
   }, []);
+  
+  // This effect ensures the visual timer updates instantly when the app is brought to the foreground.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && status === 'running' && startTime) {
+        // Recalculate elapsed time instantly on becoming visible
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status, startTime]);
+
 
   const showNotification = (title: string, options: NotificationOptions) => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SHOW_NOTIFICATION',
-        payload: { title, options }
-      });
-    } else {
-        // Fallback for when SW is not ready
-        new Notification(title, options);
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+       navigator.serviceWorker.ready.then(registration => {
+         registration.showNotification(title, options);
+       });
     }
   };
 
+  const schedulePhotoPrompts = (promptTimes: [number, number]) => {
+      if (Notification.permission !== 'granted') return;
+
+      promptTimes.forEach((time, index) => {
+          if (time > 0) {
+              setTimeout(() => {
+                  showNotification('Poli Fit Tracker', {
+                      body: `Hora da sua ${index + 1}ª verificação com foto!`,
+                      icon: '/icon.svg',
+                      tag: `photo-prompt-${index}`
+                  });
+              }, time);
+          }
+      });
+  };
 
   const resetWorkout = useCallback(() => {
     setStatus("idle");
@@ -90,20 +117,27 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         clearInterval(intervalRef.current);
         intervalRef.current = null;
     }
-    // Clear any scheduled notification timers
-    photoNotificationTimers.current.forEach(timer => {
-        if (timer) clearTimeout(timer);
-    });
-    photoNotificationTimers.current = [null, null];
   }, []);
 
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime) return;
+
+    const currentElapsedTime = Date.now() - startTime;
+    photoPromptTimes.forEach((time, index) => {
+        if (time > 0 && currentElapsedTime >= time && photos[index] === null) {
+            setIsModalOpen(true);
+            setPhotoPromptIndex(index as 0 | 1);
+        }
+    });
+  }, [status, startTime, photoPromptTimes, photos]);
+
   useEffect(() => {
-    // This effect only handles the on-screen timer display
     if (status === 'running') {
       intervalRef.current = setInterval(() => {
         if (startTime) {
            setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
         }
+        checkPhotoPrompts();
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -111,13 +145,13 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, startTime]);
+  }, [status, startTime, checkPhotoPrompts]);
 
 
   useEffect(() => {
     if (formState.type === 'success' && status === 'stopped') {
       setStatus('success');
-      onWorkoutLogged(); // Notify parent that a new workout has been logged
+      onWorkoutLogged();
     } else if (formState.type === 'error' && formState.message) {
       toast({
         title: 'Erro',
@@ -137,59 +171,31 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => clearTimeout(resetTimer);
   }, [status, resetWorkout]);
 
-  const schedulePhotoPrompts = (promptTimes: [number, number]) => {
-     photoNotificationTimers.current.forEach(timer => {
-        if (timer) clearTimeout(timer);
-    });
-
-    if (Notification.permission !== 'granted') return;
-
-    promptTimes.forEach((time, index) => {
-        if (time > 0) {
-            photoNotificationTimers.current[index] = setTimeout(() => {
-                showNotification('Poli Fit Tracker', {
-                    body: `Hora da sua ${index + 1}ª verificação com foto!`,
-                    icon: '/icon.svg',
-                    tag: `photo-prompt-${index}`
-                });
-                setIsModalOpen(true);
-                setPhotoPromptIndex(index as 0 | 1);
-            }, time);
-        }
-    });
-  }
-
-  const cleanup = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    photoNotificationTimers.current.forEach(timer => {
-        if (timer) clearTimeout(timer);
-    });
-  }, []);
-  
   const handleStart = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+    if (typeof window === 'undefined') return;
+
+    if ('Notification' in window) {
+      if (Notification.permission === "default") {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+              toast({
+                  title: "Notificações Desativadas",
+                  description: "Você não receberá lembretes para as fotos.",
+                  variant: "default",
+              });
+          }
+      } else if (Notification.permission === 'denied') {
+          toast({
+              title: "Notificações Bloqueadas",
+              description: "As notificações estão bloqueadas nas configurações do seu navegador.",
+              variant: "destructive",
+          });
+      }
+    } else {
         toast({
             title: "Notificações Não Suportadas",
-            description: "Seu navegador não suporta notificações, mas o cronômetro funcionará.",
+            description: "Seu navegador não suporta notificações. Adicione o app à sua tela inicial para habilitar.",
             variant: "default",
-        });
-    } else if (Notification.permission === "default") {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            toast({
-                title: "Notificações Desativadas",
-                description: "Você não receberá lembretes para as fotos.",
-                variant: "default",
-            });
-        }
-    } else if (Notification.permission === 'denied') {
-         toast({
-            title: "Notificações Bloqueadas",
-            description: "As notificações estão bloqueadas nas configurações do seu navegador.",
-            variant: "destructive",
         });
     }
 
@@ -216,7 +222,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   };
 
   const handleStop = () => {
-    cleanup();
+    if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+    }
+    
     const finalElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
     setElapsedSeconds(finalElapsedSeconds);
     setStatus("stopped");
@@ -224,7 +233,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `O treino não atingiu a duração mínima. Você completou ${Math.floor(finalElapsedSeconds / 60)} minutos.`,
+        description: `O treino não atingiu a duração mínima de 1 minuto.`,
         variant: "destructive",
       });
       resetWorkout();
