@@ -77,4 +77,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  .day-attended {
+    @apply bg-primary text-primary-foreground;
+  }
+  .day-attended:hover {
+    @apply bg-primary/90 text-primary-foreground;
+  }
 }
