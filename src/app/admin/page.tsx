@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import type { User, Workout, WorkoutStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { Users, Loader2, Check, X, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Users, Loader2, Check, X, Clock } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
@@ -71,19 +71,19 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
                 size="sm"
                 variant="outline"
                 className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
-                onClick={() => formAction(createFormData('approved'))}
+                onClick={(e) => {e.preventDefault(); formAction(createFormData('approved'))}}
                 disabled={isPending}
             >
-                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <ThumbsUp className="h-4 w-4" />}
+                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : 'Aprovar'}
             </Button>
             <Button
                 size="sm"
                 variant="outline"
                 className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                onClick={() => formAction(createFormData('rejected'))}
+                onClick={(e) => {e.preventDefault(); formAction(createFormData('rejected'))}}
                 disabled={isPending}
             >
-                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <ThumbsDown className="h-4 w-4" />}
+                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : 'Recusar'}
             </Button>
         </form>
     );
