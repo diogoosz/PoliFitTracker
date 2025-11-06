@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
 
-const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
+const MIN_WORKOUT_SECONDS = 1 * 60; // 1 minute for testing
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -25,8 +25,8 @@ const formatTime = (totalSeconds: number) => {
 };
 
 // Helper for random time
-const getRandomTimeInMs = (minMinutes: number, maxMinutes: number) => 
-  (Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes) * 60 * 1000;
+const getRandomTimeInMs = (minSeconds: number, maxSeconds: number) => 
+  (Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds) * 1000;
 
 
 interface WorkoutTimerProps {
@@ -56,6 +56,62 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     );
   }, [userWorkouts]);
 
+  const showNotification = useCallback((message: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Poli Fit Tracker', {
+        body: message,
+        icon: '/icon.svg'
+      });
+    }
+  }, []);
+
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || isModalOpen) return;
+
+    const now = Date.now();
+    const elapsedTimeMs = now - startTime;
+
+    const tryToShowPrompt = (index: 0 | 1, promptTime: number) => {
+        if (photos[index] === null && elapsedTimeMs >= promptTime) {
+          if (document.hidden) {
+            showNotification(`Hora da sua ${index + 1}ª verificação com foto!`);
+          } else {
+            setIsModalOpen(true);
+            setPhotoPromptIndex(index);
+          }
+          return true; // Indicates a prompt was shown or a notification sent
+        }
+        return false;
+    };
+    
+    // Try to show first prompt, if it is shown, we stop to not bombard the user
+    if (tryToShowPrompt(0, photoPromptTimes[0])) return;
+    // If first is done, try to show the second
+    if (tryToShowPrompt(1, photoPromptTimes[1])) return;
+
+  }, [status, startTime, photos, photoPromptTimes, isModalOpen, showNotification]);
+  
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible') {
+      checkPhotoPrompts();
+    }
+  }, [checkPhotoPrompts]);
+
+  useEffect(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [handleVisibilityChange]);
+
+  useEffect(() => {
+    // Request notification permission on component mount
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+
   const resetWorkout = useCallback(() => {
     setStatus("idle");
     setStartTime(null);
@@ -68,20 +124,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
-  const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime || isModalOpen) return;
-
-    const now = Date.now();
-    const elapsedTimeMs = now - startTime;
-
-    if (photos[0] === null && elapsedTimeMs >= photoPromptTimes[0]) {
-      setIsModalOpen(true);
-      setPhotoPromptIndex(0);
-    } else if (photos[0] !== null && photos[1] === null && elapsedTimeMs >= photoPromptTimes[1]) {
-      setIsModalOpen(true);
-      setPhotoPromptIndex(1);
-    }
-  }, [status, startTime, photos, photoPromptTimes, isModalOpen]);
 
   useEffect(() => {
     if (status === 'running') {
@@ -202,6 +244,11 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
     setIsModalOpen(false);
     setPhotoPromptIndex(null);
+    // Immediately check if the next prompt is also due
+    // Use a small timeout to allow state to update and modal to close
+    setTimeout(() => {
+        checkPhotoPrompts();
+    }, 100);
   };
 
   const photosTakenCount = photos.filter(p => p !== null).length;
