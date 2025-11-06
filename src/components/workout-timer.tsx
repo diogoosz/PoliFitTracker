@@ -44,8 +44,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
   const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
-  
-  const isCheckingPhotosRef = useRef(false);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -57,83 +55,45 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         workout.startTime && isToday(workout.startTime.toDate())
     );
   }, [userWorkouts]);
-
-  const showNotification = useCallback((message: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Poli Fit Tracker', {
-        body: message,
-        icon: '/icon.svg'
-      });
+  
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
   }, []);
 
- const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime || isModalOpen || isCheckingPhotosRef.current) {
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || isModalOpen) {
       return;
     }
-  
-    isCheckingPhotosRef.current = true;
   
     const now = Date.now();
     const elapsedTimeMs = now - startTime;
   
     const tryToShowPrompt = (index: 0 | 1) => {
-      const promptTime = photoPromptTimes[index];
-      if (photos[index] === null && elapsedTimeMs >= promptTime) {
-        if (document.hidden) {
-          showNotification(`Hora da sua ${index + 1}ª verificação com foto!`);
-        } else {
-          // Prevent showing a new modal if one is already open for a different prompt
-          if (!isModalOpen) {
-            setIsModalOpen(true);
-            setPhotoPromptIndex(index);
-          }
+      if (photos[index] === null && elapsedTimeMs >= photoPromptTimes[index]) {
+        setIsModalOpen(true);
+        setPhotoPromptIndex(index);
+        
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Poli Fit Tracker', {
+                body: `Hora da sua ${index + 1}ª verificação com foto!`,
+                icon: '/icon.svg'
+            });
         }
         return true; 
       }
       return false;
     };
   
-    // Check for the first photo, if not taken
     if (photos[0] === null) {
-      if(tryToShowPrompt(0)) {
-         isCheckingPhotosRef.current = false;
-         return;
-      }
-    } 
-    
-    // If the first is taken, check for the second
-    if (photos[1] === null) {
-      if(tryToShowPrompt(1)) {
-        isCheckingPhotosRef.current = false;
-        return;
-      }
+      tryToShowPrompt(0);
+    } else if (photos[1] === null) {
+      tryToShowPrompt(1);
     }
   
-    // Release the lock
-    isCheckingPhotosRef.current = false;
-  
-  }, [status, startTime, photos, photoPromptTimes, isModalOpen, showNotification]);
-  
-  const handleVisibilityChange = useCallback(() => {
-    if (document.visibilityState === 'visible') {
-      checkPhotoPrompts();
-    }
-  }, [checkPhotoPrompts]);
-
-  useEffect(() => {
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [handleVisibilityChange]);
-
-  useEffect(() => {
-    // Request notification permission on component mount
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
+  }, [status, startTime, photos, photoPromptTimes, isModalOpen]);
 
 
   const resetWorkout = useCallback(() => {
@@ -272,11 +232,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
     setIsModalOpen(false);
     setPhotoPromptIndex(null);
-    
-    // Check if the next prompt is due immediately after this one
-    setTimeout(() => {
-        checkPhotoPrompts();
-    }, 100);
   };
 
 
