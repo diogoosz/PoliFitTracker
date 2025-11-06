@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, CheckCircle, Loader2 } from "lucide-react";
 import type { Workout } from '@/lib/types';
-import { isSameMonth, isSameDay } from 'date-fns';
+import { isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface WorkoutCalendarProps {
@@ -56,7 +56,7 @@ export function WorkoutCalendar({ userWorkouts, isLoading }: WorkoutCalendarProp
         <div className="flex items-center justify-between">
             <div>
                 <CardTitle className="font-headline text-xl">Meu Progresso</CardTitle>
-                <CardDescription>Seu histórico de treinos aprovados.</CardDescription>
+                <CardDescription>Seu histórico de treinos.</CardDescription>
             </div>
             <CalendarDays className="h-6 w-6 text-muted-foreground" />
         </div>
@@ -87,7 +87,7 @@ export function WorkoutCalendar({ userWorkouts, isLoading }: WorkoutCalendarProp
         )}
         <div className="mt-4 flex items-center gap-2 rounded-lg bg-accent/50 p-3 text-sm font-medium text-accent-foreground">
             <CheckCircle className="h-5 w-5 text-green-500" />
-            <span>Você treinou {workoutsThisMonth} {workoutsThisMonth === 1 ? 'dia' : 'dias'} este mês!</span>
+            <span>Você tem {workoutsThisMonth} {workoutsThisMonth === 1 ? 'treino aprovado' : 'treinos aprovados'} este mês!</span>
         </div>
       </CardContent>
     </Card>
