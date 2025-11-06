@@ -29,11 +29,17 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
   const { data: userWorkouts, isLoading } = useCollection<Workout>(workoutsQuery);
 
   const workoutDates = userWorkouts 
-    ? userWorkouts.map(w => w.startTime && 'toDate' in w.startTime ? w.startTime.toDate() : new Date()) 
+    ? userWorkouts.reduce((acc: Date[], w) => {
+        // Ensure startTime exists and has the toDate method before converting
+        if (w.startTime && typeof w.startTime.toDate === 'function') {
+          acc.push(w.startTime.toDate());
+        }
+        return acc;
+      }, [])
     : [];
 
   const workoutsThisMonth = userWorkouts?.filter(w => 
-    w.startTime && 'toDate' in w.startTime && isSameMonth(w.startTime.toDate(), currentMonth)
+    w.startTime && typeof w.startTime.toDate === 'function' && isSameMonth(w.startTime.toDate(), currentMonth)
   ).length || 0;
 
   return (

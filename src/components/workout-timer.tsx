@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { logWorkout } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Timer, Play, Square, Camera, Loader2 } from "lucide-react";
+import { Timer, Play, Square, Camera, Loader2, CheckCircle } from "lucide-react";
 import PhotoCaptureModal from "./photo-capture-modal";
 import { useAuth } from "@/lib/auth";
 
@@ -41,17 +41,21 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   const [formState, formAction] = useActionState(logWorkout, { message: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   useEffect(() => {
     if (formState.message) {
-      toast({
-        title: formState.type === 'success' ? 'Sucesso!' : 'Erro',
-        description: formState.message,
-        variant: formState.type === 'error' ? 'destructive' : 'default',
-      });
       if (formState.type === 'success') {
-        resetWorkout();
+        setStatus('stopped');
+        setShowSuccessMessage(true);
         onWorkoutLogged();
+      } else {
+         toast({
+            title: 'Erro',
+            description: formState.message,
+            variant: 'destructive',
+          });
+          resetWorkout(); // Reset if there was an error
       }
       setIsSubmitting(false);
     }
@@ -109,6 +113,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setStartTime(Date.now());
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    setShowSuccessMessage(false);
   };
 
   const handleStop = () => {
@@ -173,6 +178,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoPromptTimes([0,0]);
+    setShowSuccessMessage(false);
   }
 
   const photosTakenCount = photos.filter(p => p !== null).length;
@@ -183,42 +189,55 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
         <CardTitle className="text-xl font-medium font-headline">Sessão de Treino</CardTitle>
         <Timer className="h-6 w-6 text-muted-foreground" />
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center space-y-6 pt-6">
-        <div className="text-5xl sm:text-6xl font-bold font-mono text-primary tabular-nums tracking-tighter">
-          {formatTime(elapsedSeconds)}
-        </div>
-        
-        {status === "idle" && (
-          <Button size="lg" className="w-48" onClick={handleStart}>
-            <Play className="mr-2 h-5 w-5" /> Iniciar Treino
-          </Button>
-        )}
-        
-        {status === "running" && (
-          <div className="w-full text-center space-y-4">
-              <Button size="lg" className="w-48" onClick={handleStop} variant="destructive">
-                <Square className="mr-2 h-5 w-5" /> Parar Treino
-              </Button>
-              <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                  <Camera className="h-4 w-4" />
-                  <span>{photosTakenCount}/2 fotos tiradas</span>
-              </div>
+      <CardContent className="flex flex-col items-center justify-center space-y-6 pt-6 min-h-[220px]">
+        {showSuccessMessage ? (
+          <div className="text-center space-y-4">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <p className="text-lg font-semibold">Treino registrado com sucesso!</p>
+            <Button size="lg" className="w-48" onClick={resetWorkout}>
+              Novo Treino
+            </Button>
           </div>
-        )}
-
-        {status === "stopped" && (
-           <div className="flex flex-col items-center gap-4">
-            {isSubmitting ? (
-              <>
-                <p className="text-muted-foreground">Enviando seu treino...</p>
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </>
-            ) : (
-              <Button size="lg" className="w-48" onClick={resetWorkout}>
-                 Novo Treino
+        ) : (
+          <>
+            <div className="text-5xl sm:text-6xl font-bold font-mono text-primary tabular-nums tracking-tighter">
+              {formatTime(elapsedSeconds)}
+            </div>
+            
+            {status === "idle" && (
+              <Button size="lg" className="w-48" onClick={handleStart}>
+                <Play className="mr-2 h-5 w-5" /> Iniciar Treino
               </Button>
             )}
-          </div>
+            
+            {status === "running" && (
+              <div className="w-full text-center space-y-4">
+                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive">
+                    <Square className="mr-2 h-5 w-5" /> Parar Treino
+                  </Button>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Camera className="h-4 w-4" />
+                      <span>{photosTakenCount}/2 fotos tiradas</span>
+                  </div>
+              </div>
+            )}
+
+            {status === "stopped" && (
+              <div className="flex flex-col items-center gap-4">
+                {isSubmitting ? (
+                  <>
+                    <p className="text-muted-foreground">Enviando seu treino...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </>
+                ) : (
+                  // This state is now handled by the success message or an error toast
+                  <Button size="lg" className="w-48" onClick={resetWorkout}>
+                    Novo Treino
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
         )}
         
         <PhotoCaptureModal
