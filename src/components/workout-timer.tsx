@@ -98,6 +98,25 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       intervalRef.current = null;
     }
   }, []);
+  
+  // This is the core logic for checking photo prompts.
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || photoPromptTimes[0] === 0) return;
+
+    const currentElapsedTime = (Date.now() - startTime) / 1000;
+    const prompt1TimeSeconds = (photoPromptTimes[0] - startTime) / 1000;
+    const prompt2TimeSeconds = (photoPromptTimes[1] - startTime) / 1000;
+    
+    // Check for first photo
+    if (photos[0] === null && currentElapsedTime >= prompt1TimeSeconds) {
+        setPhotoPromptIndex(0);
+        setIsModalOpen(true);
+    // Check for second photo, only if first is taken
+    } else if (photos[0] !== null && photos[1] === null && currentElapsedTime >= prompt2TimeSeconds) {
+        setPhotoPromptIndex(1);
+        setIsModalOpen(true);
+    }
+  }, [status, startTime, photos, photoPromptTimes]);
 
   useEffect(() => {
     return cleanup;
@@ -125,19 +144,30 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, [status, startTime]);
 
 
-  // Effect to check if it's time to prompt for a photo
+  // Effect to check for photo prompts continuously while timer is running
   useEffect(() => {
-    if (status === 'running' && photoPromptTimes[0] > 0) {
-        const currentTime = Date.now();
-        if (photos[0] === null && currentTime >= photoPromptTimes[0]) {
-            setPhotoPromptIndex(0);
-            setIsModalOpen(true);
-        } else if (photos[0] !== null && photos[1] === null && currentTime >= photoPromptTimes[1]) {
-            setPhotoPromptIndex(1);
-            setIsModalOpen(true);
-        }
-    }
-  }, [elapsedSeconds, status, photos, photoPromptTimes]);
+      if (status === 'running') {
+        checkPhotoPrompts();
+      }
+  }, [elapsedSeconds, status, checkPhotoPrompts]);
+
+  // Effect to handle page visibility changes (app goes to background and comes back)
+  useEffect(() => {
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible' && status === 'running') {
+              // Recalculate elapsed time immediately
+              setElapsedSeconds(Math.floor((Date.now() - (startTime || 0)) / 1000));
+              // Re-check for missed photo prompts
+              checkPhotoPrompts();
+          }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+  }, [status, startTime, checkPhotoPrompts]);
 
   const handleStart = () => {
     if(hasTrainedToday) {
