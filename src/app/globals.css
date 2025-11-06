@@ -77,27 +77,28 @@
   body {
     @apply bg-background text-foreground;
   }
-  /* Treino Pendente (Azul) */
-  .day-pending {
+  
+  /* Treino Pendente (Azul) - Usa a cor primária padrão do tema */
+  .day-pending:not(.day-outside) {
     @apply bg-primary text-primary-foreground;
   }
-  .day-pending:hover {
-    @apply bg-primary/90 text-primary-foreground;
+  .day-pending:not(.day-outside):hover {
+    @apply bg-primary/90;
   }
 
-  /* Treino Aprovado (Verde) */
-  .day-approved {
+  /* Treino Aprovado (Verde) - Força a cor verde */
+  .day-approved:not(.day-outside) {
     @apply bg-green-500 text-white;
   }
-  .day-approved:hover {
-    @apply bg-green-500/90 text-white;
+  .day-approved:not(.day-outside):hover {
+    @apply bg-green-500/90;
   }
 
-  /* Treino Rejeitado (Vermelho) */
-  .day-rejected {
+  /* Treino Rejeitado (Vermelho) - Força a cor vermelha */
+  .day-rejected:not(.day-outside) {
     @apply bg-red-500 text-white;
   }
-  .day-rejected:hover {
-    @apply bg-red-500/90 text-white;
+  .day-rejected:not(.day-outside):hover {
+    @apply bg-red-500/90;
   }
 }
