@@ -177,11 +177,18 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const handleStart = async () => {
     if (typeof window === 'undefined') return;
 
-    // Check for iOS Safari PWA
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isStandalone = ('standalone' in navigator) && (navigator as any).standalone;
 
-    if ('Notification' in window) {
+    if (isIOS && !isStandalone) {
+        toast({
+            title: "Ative as Notificações",
+            description: "Para receber lembretes, adicione o app à sua Tela de Início.",
+            variant: "default",
+            duration: 10000,
+            action: <ToastAction altText="Ver Tutorial" onClick={() => setIsIosInstallPromptOpen(true)}>Ver Tutorial</ToastAction>,
+        });
+    } else if ('Notification' in window) {
       if (Notification.permission === "default") {
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') {
@@ -198,13 +205,11 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
               variant: "destructive",
           });
       }
-    } else if (isIOS && !isStandalone) {
+    } else {
         toast({
-            title: "Ative as Notificações",
-            description: "Para receber lembretes, adicione o app à sua Tela de Início.",
-            variant: "default",
-            duration: 10000,
-            action: <ToastAction altText="Ver Tutorial" onClick={() => setIsIosInstallPromptOpen(true)}>Ver Tutorial</ToastAction>,
+            title: "Navegador não suportado",
+            description: "Seu navegador não suporta notificações. O cronômetro continuará, mas sem os alertas.",
+            variant: "destructive",
         });
     }
 
@@ -222,10 +227,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     
-    // Random times between 1-20 min and 21-40 min
     const times: [number, number] = [
       getRandomTimeInMs(1 * 60, 20 * 60), 
-      getRandomTimeInMs(21 * 60, 40 * 60)
+      getRandomTimeInMs(21 * 60, MIN_WORKOUT_SECONDS - 1)
     ];
     setPhotoPromptTimes(times);
     schedulePhotoPrompts(times);
