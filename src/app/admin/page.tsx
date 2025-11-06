@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import type { User, Workout, WorkoutStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { Users, Loader2, Check, X, Clock } from 'lucide-react';
+import { Users, Loader2, Check, X, Clock, MoreHorizontal } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
@@ -20,6 +20,12 @@ import { Badge } from '@/components/ui/badge';
 import { updateWorkoutStatus } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface UserWithWorkouts extends User {
   workouts: Workout[];
@@ -53,39 +59,40 @@ function AdminWorkoutActions({ workout, userId }: { workout: Workout, userId: st
         }
     }, [state, toast]);
 
-    const createFormData = (status: 'approved' | 'rejected') => {
+    const handleAction = (status: 'approved' | 'rejected') => {
         const formData = new FormData();
         formData.append('userId', userId);
         formData.append('workoutId', workout.id);
         formData.append('status', status);
-        return formData;
+        formAction(formData);
     };
-    
-    if (workout.status !== 'pending') {
-        return <StatusBadge status={workout.status} />;
-    }
 
     return (
-        <form className="flex items-center gap-2">
-            <Button
-                size="sm"
-                variant="outline"
-                className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
-                onClick={(e) => {e.preventDefault(); formAction(createFormData('approved'))}}
-                disabled={isPending}
-            >
-                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : 'Aprovar'}
-            </Button>
-            <Button
-                size="sm"
-                variant="outline"
-                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                onClick={(e) => {e.preventDefault(); formAction(createFormData('rejected'))}}
-                disabled={isPending}
-            >
-                {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : 'Recusar'}
-            </Button>
-        </form>
+        <div className="flex items-center gap-2">
+            <StatusBadge status={workout.status} />
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isPending}>
+                        {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
+                        <span className="sr-only">Ações</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {workout.status !== 'approved' && (
+                        <DropdownMenuItem onClick={() => handleAction('approved')}>
+                            <Check className="mr-2 h-4 w-4 text-green-500" />
+                            <span>Aprovar</span>
+                        </DropdownMenuItem>
+                    )}
+                    {workout.status !== 'rejected' && (
+                        <DropdownMenuItem onClick={() => handleAction('rejected')}>
+                            <X className="mr-2 h-4 w-4 text-red-500" />
+                            <span>Rejeitar</span>
+                        </DropdownMenuItem>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
     );
 }
 
