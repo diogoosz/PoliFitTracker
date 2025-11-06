@@ -27,7 +27,7 @@ const getRandomTime = (min: number, max: number) => Math.floor(Math.random() * (
 
 export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void }) {
   const { user } = useAuth();
-  const [status, setStatus] = useState<"idle" | "running" | "stopped">("idle");
+  const [status, setStatus] = useState<"idle" | "running" | "stopped" | "success">("idle");
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
@@ -41,14 +41,27 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   const [formState, formAction] = useActionState(logWorkout, { message: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  
+  const resetWorkout = useCallback(() => {
+    setStatus("idle");
+    setStartTime(null);
+    setElapsedSeconds(0);
+    setPhotos([null, null]);
+    setPhotoPromptTimes([0,0]);
+    setIsSubmitting(false);
+  }, []);
 
   useEffect(() => {
     if (formState.message) {
+      setIsSubmitting(false);
       if (formState.type === 'success') {
-        setStatus('stopped');
-        setShowSuccessMessage(true);
+        setStatus('success');
         onWorkoutLogged();
+        // Set a timer to reset the component after 5 seconds
+        const timer = setTimeout(() => {
+          resetWorkout();
+        }, 5000);
+        return () => clearTimeout(timer); // Cleanup timer on unmount
       } else {
          toast({
             title: 'Erro',
@@ -57,9 +70,8 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
           });
           resetWorkout(); // Reset if there was an error
       }
-      setIsSubmitting(false);
     }
-  }, [formState, toast, onWorkoutLogged]);
+  }, [formState, toast, onWorkoutLogged, resetWorkout]);
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -113,7 +125,6 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setStartTime(Date.now());
     setElapsedSeconds(0);
     setPhotos([null, null]);
-    setShowSuccessMessage(false);
   };
 
   const handleStop = () => {
@@ -172,15 +183,6 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setPhotoPromptIndex(null);
   };
 
-  const resetWorkout = () => {
-    setStatus("idle");
-    setStartTime(null);
-    setElapsedSeconds(0);
-    setPhotos([null, null]);
-    setPhotoPromptTimes([0,0]);
-    setShowSuccessMessage(false);
-  }
-
   const photosTakenCount = photos.filter(p => p !== null).length;
 
   return (
@@ -190,13 +192,11 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
         <Timer className="h-6 w-6 text-muted-foreground" />
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center space-y-6 pt-6 min-h-[220px]">
-        {showSuccessMessage ? (
+        {status === "success" ? (
           <div className="text-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <p className="text-lg font-semibold">Treino registrado com sucesso!</p>
-            <Button size="lg" className="w-48" onClick={resetWorkout}>
-              Novo Treino
-            </Button>
+            <p className="text-sm text-muted-foreground">O timer será reiniciado em breve...</p>
           </div>
         ) : (
           <>
@@ -231,9 +231,9 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
                   </>
                 ) : (
                   // This state is now handled by the success message or an error toast
-                  <Button size="lg" className="w-48" onClick={resetWorkout}>
-                    Novo Treino
-                  </Button>
+                   <Button size="lg" className="w-48" onClick={resetWorkout}>
+                      Tentar Novamente
+                    </Button>
                 )}
               </div>
             )}
@@ -249,3 +249,5 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     </Card>
   );
 }
+
+    
