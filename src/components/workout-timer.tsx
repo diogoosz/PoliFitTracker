@@ -39,8 +39,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  const [formState, formAction] = useActionState(logWorkout, { message: "", type: "" });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formState, formAction, isSubmitting] = useActionState(logWorkout, { message: "", type: "" });
   
   const resetWorkout = useCallback(() => {
     setStatus("idle");
@@ -48,34 +47,36 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoPromptTimes([0,0]);
-    setIsSubmitting(false);
-    // Let the parent know we're done so it can update other components
-    onWorkoutLogged();
-  }, [onWorkoutLogged]);
+    if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
-    if (formState.message) {
-      setIsSubmitting(false);
-      if (formState.type === 'success') {
-        setStatus('success');
-        // Let parent know a workout was logged to update calendar
-        onWorkoutLogged(); 
-        
-        // Set a timer to reset this component after 5 seconds
-        const timer = setTimeout(() => {
-          resetWorkout();
-        }, 5000);
-        return () => clearTimeout(timer); // Cleanup timer on unmount
-      } else {
-         toast({
-            title: 'Erro',
-            description: formState.message,
-            variant: 'destructive',
-          });
-          resetWorkout(); // Reset if there was an error
-      }
+    if (formState.type === 'success') {
+      setStatus('success');
+      onWorkoutLogged();
+    } else if (formState.type === 'error' && formState.message) {
+      toast({
+        title: 'Erro',
+        description: formState.message,
+        variant: 'destructive',
+      });
+      resetWorkout();
     }
   }, [formState, toast, onWorkoutLogged, resetWorkout]);
+
+  useEffect(() => {
+    let resetTimer: NodeJS.Timeout;
+    if (status === 'success') {
+      resetTimer = setTimeout(() => {
+        resetWorkout();
+      }, 5000);
+    }
+    return () => clearTimeout(resetTimer);
+  }, [status, resetWorkout]);
+
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -133,7 +134,6 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   const handleStop = () => {
     cleanup();
-    // Use the final reliable elapsed time for validation and submission
     const finalElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
     setElapsedSeconds(finalElapsedSeconds);
     setStatus("stopped");
@@ -168,7 +168,6 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
       return;
     }
     
-    setIsSubmitting(true);
     const formData = new FormData();
     formData.append('userId', user.id);
     formData.append('duration', String(finalElapsedSeconds));
@@ -209,14 +208,14 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
             </div>
             
             {status === "idle" && (
-              <Button size="lg" className="w-48" onClick={handleStart}>
+              <Button size="lg" className="w-48" onClick={handleStart} disabled={isSubmitting}>
                 <Play className="mr-2 h-5 w-5" /> Iniciar Treino
               </Button>
             )}
             
-            {status === "running" && (
+            {(status === "running" || status === "stopped") && !isSubmitting && (
               <div className="w-full text-center space-y-4">
-                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive">
+                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive" disabled={isSubmitting}>
                     <Square className="mr-2 h-5 w-5" /> Parar Treino
                   </Button>
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -226,19 +225,10 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
               </div>
             )}
 
-            {status === "stopped" && (
+            {isSubmitting && (
               <div className="flex flex-col items-center gap-4">
-                {isSubmitting ? (
-                  <>
-                    <p className="text-muted-foreground">Enviando seu treino...</p>
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </>
-                ) : (
-                  // This state is now handled by the success message or an error toast
-                   <Button size="lg" className="w-48" onClick={resetWorkout}>
-                      Tentar Novamente
-                    </Button>
-                )}
+                  <p className="text-muted-foreground">Enviando seu treino...</p>
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
           </>
@@ -253,5 +243,3 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     </Card>
   );
 }
-
-    

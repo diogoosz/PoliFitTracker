@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -25,11 +26,9 @@ export async function logWorkout(prevState: any, formData: FormData) {
   const validatedFields = workoutSchema.safeParse(data);
   
   if (!validatedFields.success) {
+    const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
     return {
-      message: validatedFields.error.flatten().fieldErrors.duration?.[0] 
-        || validatedFields.error.flatten().fieldErrors.photo1?.[0] 
-        || validatedFields.error.flatten().fieldErrors.photo2?.[0] 
-        || "Dados inválidos",
+      message: firstError || "Dados inválidos.",
       type: "error" as const,
     };
   }
@@ -38,6 +37,7 @@ export async function logWorkout(prevState: any, formData: FormData) {
   
   try {
     const startTime = Timestamp.now();
+    // Correctly calculate endTime based on duration in seconds
     const endTime = Timestamp.fromMillis(startTime.toMillis() + duration * 1000);
 
     const workoutCollectionRef = firestore.collection(`users/${userId}/workouts`);
