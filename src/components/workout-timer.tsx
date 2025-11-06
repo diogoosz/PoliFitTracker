@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useActionState, useMemo } from "react";
@@ -67,6 +66,24 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
+  const checkPhotoPrompts = useCallback(() => {
+    if (status !== 'running' || !startTime || photoPromptTimes[0] === 0 || isModalOpen) return;
+  
+    const currentElapsedTimeSeconds = (Date.now() - startTime) / 1000;
+    const prompt1TimeSeconds = (photoPromptTimes[0] - startTime) / 1000;
+    const prompt2TimeSeconds = (photoPromptTimes[1] - startTime) / 1000;
+  
+    // Check for first photo
+    if (photos[0] === null && currentElapsedTimeSeconds >= prompt1TimeSeconds) {
+      setPhotoPromptIndex(0);
+      setIsModalOpen(true);
+    // Check for second photo, but only if the first is taken and the modal isn't already open
+    } else if (photos[0] !== null && photos[1] === null && currentElapsedTimeSeconds >= prompt2TimeSeconds) {
+      setPhotoPromptIndex(1);
+      setIsModalOpen(true);
+    }
+  }, [status, startTime, photos, photoPromptTimes, isModalOpen]);
+
   useEffect(() => {
     if (formState.type === 'success' && status === 'stopped') {
       setStatus('success');
@@ -77,9 +94,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         description: formState.message,
         variant: 'destructive',
       });
-      resetWorkout();
+      // Do not reset automatically, allow user to see the error and maybe retry
     }
-  }, [formState, toast, onWorkoutLogged, resetWorkout, status]);
+  }, [formState, toast, onWorkoutLogged, status]);
 
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
@@ -99,24 +116,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
   
-  // This is the core logic for checking photo prompts.
-  const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime || photoPromptTimes[0] === 0) return;
-
-    const currentElapsedTime = (Date.now() - startTime) / 1000;
-    const prompt1TimeSeconds = (photoPromptTimes[0] - startTime) / 1000;
-    const prompt2TimeSeconds = (photoPromptTimes[1] - startTime) / 1000;
-    
-    // Check for first photo
-    if (photos[0] === null && currentElapsedTime >= prompt1TimeSeconds) {
-        setPhotoPromptIndex(0);
-        setIsModalOpen(true);
-    // Check for second photo, only if first is taken
-    } else if (photos[0] !== null && photos[1] === null && currentElapsedTime >= prompt2TimeSeconds) {
-        setPhotoPromptIndex(1);
-        setIsModalOpen(true);
-    }
-  }, [status, startTime, photos, photoPromptTimes]);
 
   useEffect(() => {
     return cleanup;
@@ -135,13 +134,12 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   
   // Effect to set photo prompt times ONLY when the timer starts
   useEffect(() => {
-    if (status === 'running' && startTime) {
-      // For 40 minute workout: 5-15 mins, then 25-35 mins
+    if (status === 'running' && startTime && photoPromptTimes[0] === 0) {
       const prompt1 = startTime + getRandomTime(5 * 60 * 1000, 15 * 60 * 1000); 
       const prompt2 = startTime + getRandomTime(25 * 60 * 1000, 35 * 60 * 1000);
       setPhotoPromptTimes([prompt1, prompt2]);
     }
-  }, [status, startTime]);
+  }, [status, startTime, photoPromptTimes]);
 
 
   // Effect to check for photo prompts continuously while timer is running
@@ -154,9 +152,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   // Effect to handle page visibility changes (app goes to background and comes back)
   useEffect(() => {
       const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible' && status === 'running') {
+          if (document.visibilityState === 'visible' && status === 'running' && startTime) {
               // Recalculate elapsed time immediately
-              setElapsedSeconds(Math.floor((Date.now() - (startTime || 0)) / 1000));
+              setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
               // Re-check for missed photo prompts
               checkPhotoPrompts();
           }
@@ -182,6 +180,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStartTime(Date.now());
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    setPhotoPromptTimes([0,0]);
   };
 
   const handleStop = () => {
@@ -229,13 +228,27 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   };
 
   const handlePhotoTaken = (photoDataUrl: string) => {
+    // Save the photo that was just taken
     if (photoPromptIndex !== null) {
       const newPhotos: [string | null, string | null] = [...photos];
       newPhotos[photoPromptIndex] = photoDataUrl;
       setPhotos(newPhotos);
     }
+    
+    // Close the modal and reset the prompt index
     setIsModalOpen(false);
     setPhotoPromptIndex(null);
+
+    // IMPORTANT: Immediately check if the next photo prompt is due
+    // This handles the case where the user comes back and both are due
+    if (photoPromptIndex === 0) {
+        const currentElapsedTimeSeconds = (Date.now() - (startTime || 0)) / 1000;
+        const prompt2TimeSeconds = (photoPromptTimes[1] - (startTime || 0)) / 1000;
+        if (currentElapsedTimeSeconds >= prompt2TimeSeconds) {
+            setPhotoPromptIndex(1);
+            setIsModalOpen(true);
+        }
+    }
   };
 
   const photosTakenCount = photos.filter(p => p !== null).length;
@@ -251,7 +264,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           <div className="text-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <p className="text-lg font-semibold">Treino registrado com sucesso!</p>
-            <p className="text-sm text-muted-foreground">O timer será reiniciado em breve...</p>
+            <p className="text-sm text-muted-foreground">Seu treino está pendente de aprovação.</p>
           </div>
         ) : (
           <>
