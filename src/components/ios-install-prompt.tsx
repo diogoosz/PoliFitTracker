@@ -36,7 +36,7 @@ export function IosInstallPrompt({ isOpen, onClose }: IosInstallPromptProps) {
                 </div>
                  <div className="relative mt-2 w-full overflow-hidden rounded-lg border aspect-[16/5]">
                     <Image
-                        src="https://firebasestorage.googleapis.com/v0/b/studio-4662689289-857d9.appspot.com/o/assets%2Fios-step-1.png?alt=media&token=d165c71b-3f7f-4423-866a-1e43e2e8b28a"
+                        src="https://firebasestorage.googleapis.com/v0/b/studio-4662689289-857d9.appspot.com/o/assets%2Fios-step-1.png?alt=media&amp;token=d165c71b-3f7f-4423-866a-1e43e2e8b28a"
                         alt="Passo 1: Ícone de compartilhar no Safari"
                         fill
                         className="object-contain"
@@ -54,7 +54,7 @@ export function IosInstallPrompt({ isOpen, onClose }: IosInstallPromptProps) {
                 </div>
                  <div className="relative mt-2 w-full overflow-hidden rounded-lg border aspect-[16/7]">
                      <Image
-                        src="https://firebasestorage.googleapis.com/v0/b/studio-4662689289-857d9.appspot.com/o/assets%2Fios-step-2.png?alt=media&token=df4f494a-9311-477c-87d4-e69e0f6c2430"
+                        src="https://firebasestorage.googleapis.com/v0/b/studio-4662689289-857d9.appspot.com/o/assets%2Fios-step-2.png?alt=media&amp;token=df4f494a-9311-477c-87d4-e69e0f6c2430"
                         alt="Passo 2: Opção Adicionar à Tela de Início"
                         fill
                         className="object-contain"
