@@ -10,7 +10,7 @@ import { Timer, Play, Square, Camera, Loader2, CheckCircle } from "lucide-react"
 import PhotoCaptureModal from "./photo-capture-modal";
 import { useAuth } from "@/lib/auth";
 
-const MIN_WORKOUT_SECONDS = 2 * 60; // 2 minutes for testing
+const MIN_WORKOUT_SECONDS = 2 * 60; // 2 minutes
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -49,15 +49,19 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
     setPhotos([null, null]);
     setPhotoPromptTimes([0,0]);
     setIsSubmitting(false);
-  }, []);
+    // Let the parent know we're done so it can update other components
+    onWorkoutLogged();
+  }, [onWorkoutLogged]);
 
   useEffect(() => {
     if (formState.message) {
       setIsSubmitting(false);
       if (formState.type === 'success') {
         setStatus('success');
-        onWorkoutLogged();
-        // Set a timer to reset the component after 5 seconds
+        // Let parent know a workout was logged to update calendar
+        onWorkoutLogged(); 
+        
+        // Set a timer to reset this component after 5 seconds
         const timer = setTimeout(() => {
           resetWorkout();
         }, 5000);

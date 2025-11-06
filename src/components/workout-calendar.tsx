@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, CheckCircle, Loader2 } from "lucide-react";
 import type { Workout } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { isSameMonth } from 'date-fns';
+import { isSameDay, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -24,19 +24,20 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
       collection(firestore, 'users', user.id, 'workouts'),
       orderBy('startTime', 'desc')
     );
-  }, [firestore, user, refreshKey]); // refreshKey is now a dependency
+  }, [firestore, user, refreshKey]); // refreshKey forces this query to re-run
 
   const { data: userWorkouts, isLoading } = useCollection<Workout>(workoutsQuery);
 
-  const workoutDates = userWorkouts 
-    ? userWorkouts.reduce((acc: Date[], w) => {
-        // Ensure startTime exists and has the toDate method before converting
+  const workoutDates = useMemo(() => {
+      if (!userWorkouts) return [];
+      return userWorkouts.reduce((acc: Date[], w) => {
         if (w.startTime && typeof w.startTime.toDate === 'function') {
           acc.push(w.startTime.toDate());
         }
         return acc;
-      }, [])
-    : [];
+      }, []);
+  }, [userWorkouts]);
+
 
   const workoutsThisMonth = userWorkouts?.filter(w => 
     w.startTime && typeof w.startTime.toDate === 'function' && isSameMonth(w.startTime.toDate(), currentMonth)
@@ -54,7 +55,7 @@ export function WorkoutCalendar({ refreshKey }: { refreshKey: number }) {
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        {isLoading ? (
+        {isLoading && !userWorkouts ? ( // Show loader only on initial load
           <div className="flex items-center justify-center h-[335px]">
             <Loader2 className="animate-spin" />
           </div>
