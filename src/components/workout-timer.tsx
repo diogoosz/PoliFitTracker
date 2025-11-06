@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
 
-const MIN_WORKOUT_SECONDS = 1 * 60; // 1 minute for testing
+const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -187,7 +187,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       } else if (Notification.permission === 'denied') {
           toast({
               title: "Notificações Bloqueadas",
-              description: "As notificações estão bloqueadas nas configurações do seu navegador.",
+              description: "Habilite as notificações nas configurações do seu navegador para os lembretes.",
               variant: "destructive",
           });
       }
@@ -213,9 +213,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     
+    // Random times between 1-20 min and 21-40 min
     const times: [number, number] = [
-      getRandomTimeInMs(5, 15), 
-      getRandomTimeInMs(25, 45)
+      getRandomTimeInMs(1 * 60, 20 * 60), 
+      getRandomTimeInMs(21 * 60, 40 * 60)
     ];
     setPhotoPromptTimes(times);
     schedulePhotoPrompts(times);
@@ -233,7 +234,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `O treino não atingiu a duração mínima de 1 minuto.`,
+        description: `O treino não atingiu a duração mínima para ser registrado.`,
         variant: "destructive",
       });
       resetWorkout();
