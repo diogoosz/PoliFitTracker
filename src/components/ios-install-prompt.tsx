@@ -9,7 +9,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import Image from "next/image";
-import { Share } from "lucide-react";
 
 interface IosInstallPromptProps {
   isOpen: boolean;
