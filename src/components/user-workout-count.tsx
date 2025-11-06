@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCollection } from '@/firebase';
@@ -20,7 +21,8 @@ export function UserWorkoutCount({ userId }: { userId: string }) {
     return <Loader2 className="animate-spin h-4 w-4 text-muted-foreground" />;
   }
 
-  const count = workouts?.length || 0;
+  // Filter workouts to count only 'approved' and 'pending'
+  const count = workouts?.filter(w => w.status === 'approved' || w.status === 'pending').length || 0;
 
   return (
     <div className={cn(
