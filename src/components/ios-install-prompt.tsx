@@ -42,7 +42,7 @@ export function IosInstallPrompt({ isOpen, onClose }: IosInstallPromptProps) {
             
             <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-lg border">
                  <Image
-                    src="https://picsum.photos/seed/ios-pwa/600/338"
+                    src="https://storage.googleapis.com/static.invertase.io/assets/images/pwa-add-to-home-screen-ios.png"
                     alt="Tutorial de como instalar o app no iOS"
                     fill
                     className="object-contain"
