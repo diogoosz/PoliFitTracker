@@ -55,15 +55,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         workout.startTime && isToday(workout.startTime.toDate())
     );
   }, [userWorkouts]);
-  
-  // Request notification permission on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-  }, []);
 
   const checkPhotoPrompts = useCallback(() => {
     if (status !== 'running' || !startTime || isModalOpen) {
@@ -78,7 +69,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         setIsModalOpen(true);
         setPhotoPromptIndex(index);
         
-        if ('Notification' in window && Notification.permission === 'granted') {
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             new Notification('Poli Fit Tracker', {
                 body: `Hora da sua ${index + 1}ª verificação com foto!`,
                 icon: '/icon.svg'
@@ -157,7 +148,14 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
   
-  const handleStart = () => {
+  const handleStart = async () => {
+    // First, check for notification permission and request if needed
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    }
+
     if(hasTrainedToday) {
         toast({
             title: "Treino Já Registrado",
@@ -171,10 +169,12 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStartTime(now);
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    
     // Set random times for photo prompts right at the start
+    // For testing, let's make them appear quickly within the 1-minute window
     setPhotoPromptTimes([
       getRandomTimeInMs(5, 15), 
-      getRandomTimeInMs(25, 35)
+      getRandomTimeInMs(25, 45)
     ]);
   };
 
