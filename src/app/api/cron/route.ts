@@ -22,8 +22,7 @@ function initializeFirebaseAdmin() {
         const serviceAccount = JSON.parse(serviceAccountString);
         
         return admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            storageBucket: 'studio-4662689289-857d9.appspot.com'
+            credential: admin.credential.cert(serviceAccount)
         });
     } catch (error) {
         console.error("Failed to parse or initialize Firebase Admin SDK:", error);
@@ -34,31 +33,6 @@ function initializeFirebaseAdmin() {
 // Initialize the app
 const app = initializeFirebaseAdmin();
 const db = admin.firestore();
-const storage = admin.storage().bucket();
-
-// Helper function to delete a file from Firebase Storage from a URL
-async function deleteFileFromUrl(fileUrl: string) {
-    if (!fileUrl) return;
-    try {
-        // Firebase Storage URLs are in the format:
-        // https://firebasestorage.googleapis.com/v0/b/YOUR_BUCKET/o/PATH_TO_FILE?alt=media&token=...
-        // We need to extract the "PATH_TO_FILE" part.
-        const decodedUrl = decodeURIComponent(fileUrl);
-        const pathStartIndex = decodedUrl.indexOf('/o/') + 3;
-        const pathEndIndex = decodedUrl.indexOf('?');
-        const filePath = decodedUrl.substring(pathStartIndex, pathEndIndex);
-
-        if (filePath) {
-            await storage.file(filePath).delete();
-            console.log(`Successfully deleted photo: ${filePath}`);
-        }
-    } catch (error: any) {
-        // It's okay if the file doesn't exist, log other errors.
-        if (error.code !== 404) {
-            console.error(`Error deleting file from URL ${fileUrl}:`, error);
-        }
-    }
-}
 
 
 export async function GET(request: Request) {
@@ -95,15 +69,7 @@ export async function GET(request: Request) {
 
         // Process deletions for each old workout
         await Promise.all(oldWorkoutsSnapshot.docs.map(async (workoutDoc) => {
-            const workoutData = workoutDoc.data();
-            
-            // Delete associated photos from Storage
-            await Promise.all([
-                deleteFileFromUrl(workoutData.photo1Url),
-                deleteFileFromUrl(workoutData.photo2Url)
-            ]);
-            
-            // Delete workout document from Firestore
+            // Since photos are stored as Data URLs in Firestore, we only need to delete the document.
             await workoutDoc.ref.delete();
             deletedCount++;
             console.log(`Deleted workout ${workoutDoc.id} from user ${userId}`);

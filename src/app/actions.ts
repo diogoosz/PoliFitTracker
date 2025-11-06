@@ -3,12 +3,9 @@
 import { z } from "zod";
 import { initializeServerApp } from "@/firebase/server-init";
 import { Timestamp }from 'firebase-admin/firestore';
-import { getStorage as getAdminStorage } from 'firebase-admin/storage';
-
 
 // Initialize Firebase Admin SDK for server-side operations
 const { firestore } = initializeServerApp();
-const adminStorage = getAdminStorage();
 
 const workoutSchema = z.object({
   userId: z.string().min(1, "O ID do usuário é obrigatório."),
@@ -16,26 +13,6 @@ const workoutSchema = z.object({
   photo1: z.string().min(1, "A foto 1 é obrigatória."),
   photo2: z.string().min(1, "A foto 2 é obrigatória."),
 });
-
-async function uploadPhoto(userId: string, workoutId: string, photoDataUrl: string, photoNumber: number): Promise<string> {
-    const bucket = adminStorage.bucket();
-    const filePath = `verifications/${userId}/${workoutId}/photo_${photoNumber}.jpg`;
-    const file = bucket.file(filePath);
-    const base64Data = photoDataUrl.split(',')[1];
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    await file.save(buffer, {
-        metadata: {
-            contentType: 'image/jpeg',
-        },
-    });
-
-    // Make the file public to get a downloadable URL
-    await file.makePublic();
-    
-    return file.publicUrl();
-}
-
 
 export async function logWorkout(prevState: any, formData: FormData) {
   const data = {
@@ -65,26 +42,14 @@ export async function logWorkout(prevState: any, formData: FormData) {
 
     const workoutCollectionRef = firestore.collection(`users/${userId}/workouts`);
     
-    // 1. Create the workout document first to get an ID
-    const workoutRef = await workoutCollectionRef.add({
+    // Create the workout document with the photo data URLs directly
+    await workoutCollectionRef.add({
         userId,
         startTime,
         endTime,
         duration: Math.floor(duration),
-        photo1Url: '', // Will be updated
-        photo2Url: '', // Will be updated
-    });
-
-    const workoutId = workoutRef.id;
-    
-    // 2. Upload photos with the new workout ID
-    const photo1Url = await uploadPhoto(userId, workoutId, photo1, 1);
-    const photo2Url = await uploadPhoto(userId, workoutId, photo2, 2);
-
-    // 3. Update the workout document with the photo URLs
-    await workoutRef.update({
-        photo1Url,
-        photo2Url,
+        photo1DataUrl: photo1,
+        photo2DataUrl: photo2,
     });
     
     return {

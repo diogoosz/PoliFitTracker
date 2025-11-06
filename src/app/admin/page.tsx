@@ -44,8 +44,8 @@ function UserWorkouts({ user }: { user: User }) {
             <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
             <p className="text-sm text-muted-foreground mb-4">Duração: {Math.floor(workout.duration / 60)} minutos</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {workout.photo1Url && <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
-                {workout.photo2Url && <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                {workout.photo1DataUrl && <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                {workout.photo2DataUrl && <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
             </div>
         </div>
       ))}
@@ -136,4 +136,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
