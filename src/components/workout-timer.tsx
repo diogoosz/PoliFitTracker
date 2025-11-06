@@ -371,5 +371,3 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
-
-    
