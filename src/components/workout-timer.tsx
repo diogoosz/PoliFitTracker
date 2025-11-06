@@ -193,9 +193,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       }
     } else {
         toast({
-            title: "Notificações Não Suportadas",
-            description: "Seu navegador não suporta notificações. Adicione o app à sua tela inicial para habilitar.",
+            title: "Ative as Notificações",
+            description: "Para receber lembretes no iOS, adicione o app à sua Tela de Início: Toque no ícone de Compartilhar e depois em 'Adicionar à Tela de Início'.",
             variant: "default",
+            duration: 10000,
         });
     }
 
@@ -234,7 +235,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `O treino não atingiu a duração mínima para ser registrado.`,
+        description: "O treino não atingiu a duração mínima para ser registrado.",
         variant: "destructive",
       });
       resetWorkout();
