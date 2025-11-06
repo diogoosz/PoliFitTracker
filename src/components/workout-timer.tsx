@@ -1,14 +1,17 @@
 
+
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useActionState } from "react";
+import { useState, useEffect, useRef, useCallback, useActionState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { logWorkout } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Timer, Play, Square, Camera, Loader2, CheckCircle } from "lucide-react";
+import { Timer, Play, Square, Camera, Loader2, CheckCircle, PartyPopper } from "lucide-react";
 import PhotoCaptureModal from "./photo-capture-modal";
 import { useAuth } from "@/lib/auth";
+import type { Workout } from "@/lib/types";
+import { isToday } from "date-fns";
 
 const MIN_WORKOUT_SECONDS = 2 * 60; // 2 minutes
 
@@ -25,7 +28,12 @@ const formatTime = (totalSeconds: number) => {
 // Helper for random time
 const getRandomTime = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min);
 
-export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void }) {
+interface WorkoutTimerProps {
+  onWorkoutLogged: () => void;
+  userWorkouts: Workout[];
+}
+
+export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProps) {
   const { user } = useAuth();
   const [status, setStatus] = useState<"idle" | "running" | "stopped" | "success">("idle");
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -41,6 +49,12 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
 
   const [formState, formAction, isSubmitting] = useActionState(logWorkout, { message: "", type: "" });
   
+  const hasTrainedToday = useMemo(() => {
+    return userWorkouts.some(workout => 
+        workout.startTime && isToday(workout.startTime.toDate())
+    );
+  }, [userWorkouts]);
+
   const resetWorkout = useCallback(() => {
     setStatus("idle");
     setStartTime(null);
@@ -56,7 +70,7 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   useEffect(() => {
     if (formState.type === 'success') {
       setStatus('success');
-      onWorkoutLogged();
+      onWorkoutLogged(); // Notify parent that a new workout has been logged
     } else if (formState.type === 'error' && formState.message) {
       toast({
         title: 'Erro',
@@ -126,6 +140,14 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
   }, [elapsedSeconds, status, photos, photoPromptTimes]);
 
   const handleStart = () => {
+    if(hasTrainedToday) {
+        toast({
+            title: "Treino Já Registrado",
+            description: "Você já registrou seu treino hoje. Volte amanhã para mais!",
+            variant: "default",
+        });
+        return;
+    }
     setStatus("running");
     setStartTime(Date.now());
     setElapsedSeconds(0);
@@ -208,9 +230,22 @@ export function WorkoutTimer({ onWorkoutLogged }: { onWorkoutLogged: () => void 
             </div>
             
             {status === "idle" && (
-              <Button size="lg" className="w-48" onClick={handleStart} disabled={isSubmitting}>
-                <Play className="mr-2 h-5 w-5" /> Iniciar Treino
-              </Button>
+              <div className="text-center space-y-2">
+                <Button 
+                  size="lg" 
+                  className="w-48" 
+                  onClick={handleStart} 
+                  disabled={isSubmitting || hasTrainedToday}
+                >
+                  <Play className="mr-2 h-5 w-5" /> Iniciar Treino
+                </Button>
+                {hasTrainedToday && (
+                  <p className="text-sm text-green-600 flex items-center justify-center gap-2">
+                    <PartyPopper className="h-4 w-4" />
+                    Você já treinou hoje!
+                  </p>
+                )}
+              </div>
             )}
             
             {(status === "running" || status === "stopped") && !isSubmitting && (
