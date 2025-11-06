@@ -76,6 +76,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;
   }
   
   /* Treino Pendente (Azul) - Usa a cor primária padrão do tema */
