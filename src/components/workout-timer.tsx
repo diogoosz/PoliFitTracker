@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useActionState, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { logWorkout } from "@/app/actions";
+import { logWorkoutClient } from "@/app/client-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Timer, Play, Square, Camera, Loader2, CheckCircle, PartyPopper } from "lucide-react";
@@ -12,7 +12,8 @@ import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
 import { IosInstallPrompt } from "./ios-install-prompt";
-import { ToastAction } from "@/components/ui/toast"
+import { ToastAction } from "@/components/ui/toast";
+import { useFirestore } from "@/firebase";
 
 const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
 
@@ -38,7 +39,8 @@ interface WorkoutTimerProps {
 
 export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProps) {
   const { user } = useAuth();
-  const [status, setStatus] = useState<"idle" | "running" | "stopped" | "success">("idle");
+  const firestore = useFirestore();
+  const [status, setStatus] = useState<"idle" | "running" | "stopped" | "submitting" | "success">("idle");
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
@@ -50,8 +52,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
-
-  const [formState, formAction, isSubmitting] = useActionState(logWorkout, { message: "", type: "" });
   
   const hasTrainedToday = useMemo(() => {
     return userWorkouts.some(workout => 
@@ -150,29 +150,16 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     };
   }, [status, startTime, checkPhotoPrompts]);
 
-
-  useEffect(() => {
-    if (formState.type === 'success' && status === 'stopped') {
-      setStatus('success');
-      onWorkoutLogged();
-    } else if (formState.type === 'error' && formState.message) {
-      toast({
-        title: 'Erro',
-        description: formState.message,
-        variant: 'destructive',
-      });
-    }
-  }, [formState, toast, onWorkoutLogged, status]);
-
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
     if (status === 'success') {
+      onWorkoutLogged();
       resetTimer = setTimeout(() => {
         resetWorkout();
       }, 5000);
     }
     return () => clearTimeout(resetTimer);
-  }, [status, resetWorkout]);
+  }, [status, resetWorkout, onWorkoutLogged]);
 
   const handleStart = async () => {
     if (typeof window === 'undefined') return;
@@ -235,7 +222,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     schedulePhotoPrompts(times);
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
     if (intervalRef.current) {
         clearInterval(intervalRef.current);
     }
@@ -274,12 +261,22 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       return;
     }
     
-    const formData = new FormData();
-    formData.append('userId', user.id);
-    formData.append('duration', String(finalElapsedSeconds));
-    formData.append('photo1', photos[0]);
-    formData.append('photo2', photos[1]);
-    formAction(formData);
+    setStatus("submitting");
+
+    try {
+        await logWorkoutClient(firestore, user, finalElapsedSeconds, photos[0], photos[1]);
+        setStatus("success");
+    } catch (error) {
+        console.error("Error logging workout: ", error);
+        const errorMessage = error instanceof Error ? error.message : "Um erro desconhecido ocorreu.";
+        toast({
+            title: 'Erro',
+            description: `Falha ao registrar o treino: ${errorMessage}`,
+            variant: 'destructive',
+        });
+        // Reset to a state where the user can try again without losing data
+        setStatus("stopped");
+    }
   };
 
   const handlePhotoTaken = (photoDataUrl: string) => {
@@ -298,6 +295,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
 
   const photosTakenCount = photos.filter(p => p !== null).length;
+  const isSubmitting = status === "submitting";
 
   return (
     <Card className="shadow-lg">
