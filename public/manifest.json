@@ -1,11 +1,11 @@
 {
   "name": "Poli Fit Tracker",
   "short_name": "PoliFit",
+  "description": "Acompanhe sua jornada fitness com o Poli Fit Tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0096c7",
-  "description": "Acompanhe sua jornada fitness com o Poli Fit Tracker.",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0096D0",
   "icons": [
     {
       "src": "/icon.svg",
@@ -13,13 +13,8 @@
       "type": "image/svg+xml"
     },
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/apple-icon.png",
       "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
       "type": "image/png"
     }
   ]
