@@ -6,12 +6,12 @@
 // estamos voltando a este método para garantir que o site funcione.
 
 const firebaseConfigValues = {
-  apiKey: "AIzaSy... (COLE SEU VALOR AQUI)",
-  authDomain: "seu-projeto.firebaseapp.com (COLE SEU VALOR AQUI)",
-  projectId: "seu-projeto (COLE SEU VALOR AQUI)",
-  storageBucket: "seu-projeto.appspot.com (COLE SEU VALOR AQUI)",
-  messagingSenderId: "12345... (COLE SEU VALOR AQUI)",
-  appId: "1:12345... (COLE SEU VALOR AQUI)",
+  apiKey: "AIzaSyDQK8X-ujxyfwag6nKuAAThdnI4bDKG0bw",
+  authDomain: "studio-4662689289-857d9.firebaseapp.com",
+  projectId: "studio-4662689289-857d9",
+  storageBucket: "studio-4662689289-857d9.firebasestorage.app",
+  messagingSenderId: "862395535961",
+  appId: "1:862395535961:web:5985211c3631f8fea3d748"
 };
 
 
