@@ -42,6 +42,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const firestore = useFirestore();
   const [status, setStatus] = useState<"idle" | "running" | "stopped" | "submitting" | "success">("idle");
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [startTimeDate, setStartTimeDate] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -112,6 +113,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const resetWorkout = useCallback(() => {
     setStatus("idle");
     setStartTime(null);
+    setStartTimeDate(null);
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoPromptTimes([0,0]);
@@ -208,9 +210,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         });
         return;
     }
-    const now = Date.now();
+    const now = new Date();
     setStatus("running");
-    setStartTime(now);
+    setStartTime(now.getTime());
+    setStartTimeDate(now);
     setElapsedSeconds(0);
     setPhotos([null, null]);
     
@@ -251,10 +254,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       return;
     }
     
-    if (!user) {
+    if (!user || !startTimeDate) {
       toast({
-        title: "Usuário não encontrado",
-        description: "Você precisa estar logado para registrar um treino.",
+        title: "Usuário ou tempo de início não encontrado",
+        description: "Você precisa estar logado e o treino precisa ter iniciado para registrar.",
         variant: "destructive",
       });
       resetWorkout();
@@ -264,7 +267,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStatus("submitting");
 
     try {
-        await logWorkoutClient(firestore, user, finalElapsedSeconds, photos[0], photos[1]);
+        await logWorkoutClient(firestore, user, startTimeDate, finalElapsedSeconds, photos[0], photos[1]);
         setStatus("success");
     } catch (error) {
         console.error("Error logging workout: ", error);

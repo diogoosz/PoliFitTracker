@@ -29,6 +29,7 @@ export async function updateWorkoutStatus(
 export async function logWorkoutClient(
     firestore: Firestore, 
     user: User, 
+    startTime: Date,
     duration: number, 
     photo1DataUrl: string, 
     photo2DataUrl: string
@@ -40,17 +41,12 @@ export async function logWorkoutClient(
         throw new Error("User not authenticated.");
     }
 
-    const startTime = serverTimestamp();
-    
-    // Note: We can't calculate endTime on the client with serverTimestamp.
-    // We will store duration and let the client calculate endTime when reading.
-    // Or, use a cloud function trigger if precise server-side endTime is needed.
-    // For this app, storing duration is sufficient.
+    const endTime = new Date(startTime.getTime() + duration * 1000);
 
     const workoutData = {
         userId: user.id,
         startTime,
-        endTime: startTime, // Placeholder, will be updated by server if needed, or calculated on client
+        endTime, 
         duration: Math.floor(duration),
         photo1DataUrl,
         photo2DataUrl,
