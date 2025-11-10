@@ -8,6 +8,18 @@ import { getStorage } from 'firebase/storage';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
+  // If config is not defined, we cannot initialize Firebase.
+  if (!firebaseConfig) {
+    console.warn("Firebase config is not defined. Skipping Firebase initialization.");
+    // Return a structure with null services.
+    return {
+      firebaseApp: null,
+      auth: null,
+      firestore: null,
+      storage: null
+    };
+  }
+
   if (!getApps().length) {
     const firebaseApp = initializeApp(firebaseConfig);
     return getSdks(firebaseApp);

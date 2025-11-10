@@ -1,7 +1,7 @@
 
 'use client';
 
-import { doc, updateDoc, Firestore, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, Firestore, collection, addDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 export async function updateWorkoutStatus(
@@ -22,7 +22,7 @@ export async function updateWorkoutStatus(
   await updateDoc(workoutRef, { 
     status,
     reviewerName,
-    reviewedAt: serverTimestamp()
+    reviewedAt: new Date() // Use client time for review, can be changed to serverTimestamp if needed
   });
 }
 

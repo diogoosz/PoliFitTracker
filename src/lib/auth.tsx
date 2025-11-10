@@ -6,8 +6,9 @@ import type { User as AppUser } from './types';
 import { useRouter } from 'next/navigation';
 import { 
   useUser, 
-  useAuth as useFirebaseAuth, 
-  useFirestore
+  useFirebaseAuth, 
+  useFirestore,
+  useFirebase
 } from '@/firebase';
 import { 
   GoogleAuthProvider, 
@@ -32,6 +33,7 @@ const ALLOWED_DOMAIN = "poli.digital";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
+  const { areServicesAvailable } = useFirebase();
   const auth = useFirebaseAuth();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
@@ -40,6 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
   const handleUserSync = useCallback(async (userToSync: FirebaseUser) => {
+    if (!auth || !firestore) {
+      setLoading(false);
+      return;
+    }
     // This is the core logic for syncing a Firebase user to a Firestore profile.
     if (!userToSync.email) {
       // This can happen briefly after login. If we don't have an email, we can't check the domain.
@@ -82,6 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth, firestore, toast]);
 
   useEffect(() => {
+    // If firebase services aren't configured, we are not loading and have no user.
+    if (!areServicesAvailable) {
+      setLoading(false);
+      setAppUser(null);
+      return;
+    }
+
     // This effect runs whenever the firebaseUser object changes.
     if (firebaseUser) {
       // User is authenticated with Firebase.
@@ -92,11 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
     // isFirebaseUserLoading is critical here. We wait for Firebase to tell us it's done checking.
-  }, [firebaseUser, isFirebaseUserLoading, handleUserSync]);
+  }, [firebaseUser, isFirebaseUserLoading, handleUserSync, areServicesAvailable]);
 
 
   const signInWithGoogle = async () => {
-    if (!auth) return;
+    if (!auth) {
+       toast({
+        title: 'Serviço indisponível',
+        description: 'A autenticação não está configurada. Verifique as variáveis de ambiente.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
