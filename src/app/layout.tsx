@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: 'Acompanhe sua jornada fitness com o Poli Fit Tracker',
   icons: {
     icon: '/icon.svg',
+    apple: '/icon.svg',
   },
   manifest: '/manifest.json',
 };
