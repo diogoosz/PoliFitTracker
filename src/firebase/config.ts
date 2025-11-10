@@ -1,9 +1,9 @@
 // Este arquivo contém a configuração do Firebase.
 // Substitua os valores de exemplo pelos valores do seu projeto no Firebase.
 
-// IMPORTANTE: Este método, com chaves diretamente no código, é mais simples mas menos seguro.
-// Funciona, mas o ideal no futuro seria usar variáveis de ambiente.
-// Por agora, vamos voltar ao que funcionava para resolver o problema.
+// IMPORTANTE: Este método, com chaves diretamente no código, é como o sistema
+// funcionava originalmente. Após a minha falha em implementar variáveis de ambiente,
+// estamos voltando a este método para garantir que o site funcione.
 
 const firebaseConfigValues = {
   apiKey: "AIzaSy... (COLE SEU VALOR AQUI)",
@@ -26,6 +26,7 @@ const areAllVarsDefined =
 export const firebaseConfig = areAllVarsDefined ? firebaseConfigValues : undefined;
 
 if (!areAllVarsDefined) {
+  // Este erro aparecerá no console do navegador se as chaves não forem preenchidas.
   console.error(
     "A configuração do Firebase não foi definida ou ainda está com os valores de exemplo. " +
     "Por favor, edite o arquivo `src/firebase/config.ts` com as chaves do seu projeto."
