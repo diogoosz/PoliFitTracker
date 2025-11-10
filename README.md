@@ -1,1 +1,1 @@
-Aplicativo de rastreamento academia da POLI!
+Aplicativo de rastreamento academia da POLI! Atualizando para forçar o deploy.
