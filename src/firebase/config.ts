@@ -1,3 +1,4 @@
+
 // This file dynamically loads Firebase configuration from environment variables.
 // It allows for separate configurations for development and production environments.
 
