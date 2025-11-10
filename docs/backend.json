@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -75,6 +76,16 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the second verification photo stored in Firebase Storage."
+        },
+        "photo1Timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of when the first verification photo was taken."
+        },
+        "photo2Timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of when the second verification photo was taken."
         },
         "status": {
             "type": "string",

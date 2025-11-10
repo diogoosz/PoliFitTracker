@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import type { User, Workout, WorkoutStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { Users, Loader2, Check, X, Clock, MoreHorizontal, UserCheck } from 'lucide-react';
+import { Users, Loader2, Check, X, Clock, MoreHorizontal, UserCheck, Image as ImageIcon } from 'lucide-react';
 import { ptBR } from 'date-fns/locale';
 import { useCollection } from '@/firebase';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
@@ -132,7 +132,7 @@ function UserWorkouts({ user }: { user: User }) {
         
         return (
             <div key={workout.id} className="p-4 border rounded-lg bg-background">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-4">
                     <div>
                         <p className="font-medium">{format(workout.startTime.toDate(), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
                         <p className="text-sm text-muted-foreground">Duração: {Math.floor(workout.duration / 60)} minutos</p>
@@ -146,8 +146,28 @@ function UserWorkouts({ user }: { user: User }) {
                     <AdminWorkoutActions workout={workout} userId={user.id} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {workout.photo1DataUrl && <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
-                    {workout.photo2DataUrl && <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />}
+                    {workout.photo1DataUrl && (
+                        <div>
+                            <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                            {workout.photo1Timestamp && (
+                                <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
+                                    <ImageIcon className="h-3 w-3" />
+                                    Foto 1 tirada em: {format(workout.photo1Timestamp.toDate(), "HH:mm:ss")}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    {workout.photo2DataUrl && (
+                        <div>
+                             <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                             {workout.photo2Timestamp && (
+                                <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
+                                    <ImageIcon className="h-3 w-3" />
+                                    Foto 2 tirada em: {format(workout.photo2Timestamp.toDate(), "HH:mm:ss")}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         );

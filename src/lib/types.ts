@@ -19,6 +19,8 @@ export interface Workout {
   duration: number; // in seconds
   photo1DataUrl: string;
   photo2DataUrl: string;
+  photo1Timestamp?: Timestamp;
+  photo2Timestamp?: Timestamp;
   status: WorkoutStatus;
   reviewerName?: string;
   reviewedAt?: Timestamp;

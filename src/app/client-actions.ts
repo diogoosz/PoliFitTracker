@@ -32,7 +32,9 @@ export async function logWorkoutClient(
     startTime: Date,
     duration: number, 
     photo1DataUrl: string, 
-    photo2DataUrl: string
+    photo2DataUrl: string,
+    photo1Timestamp: Date,
+    photo2Timestamp: Date
 ) {
     if (!firestore) {
         throw new Error("Firestore instance is not available.");
@@ -50,6 +52,8 @@ export async function logWorkoutClient(
         duration: Math.floor(duration),
         photo1DataUrl,
         photo2DataUrl,
+        photo1Timestamp,
+        photo2Timestamp,
         status: 'pending',
     };
 

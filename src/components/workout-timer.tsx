@@ -45,6 +45,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [startTimeDate, setStartTimeDate] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null, null]);
+  const [photoTimestamps, setPhotoTimestamps] = useState<[Date | null, Date | null]>([null, null]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIosInstallPromptOpen, setIsIosInstallPromptOpen] = useState(false);
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
@@ -116,6 +117,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStartTimeDate(null);
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    setPhotoTimestamps([null, null]);
     setPhotoPromptTimes([0,0]);
 
     if (intervalRef.current) {
@@ -216,6 +218,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStartTimeDate(now);
     setElapsedSeconds(0);
     setPhotos([null, null]);
+    setPhotoTimestamps([null, null]);
     
     const times: [number, number] = [
       getRandomTimeInMs(1 * 60, 20 * 60), 
@@ -254,10 +257,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       return;
     }
     
-    if (!user || !startTimeDate) {
+    if (!user || !startTimeDate || !photoTimestamps[0] || !photoTimestamps[1]) {
       toast({
-        title: "Usuário ou tempo de início não encontrado",
-        description: "Você precisa estar logado e o treino precisa ter iniciado para registrar.",
+        title: "Dados incompletos para registrar",
+        description: "Ocorreu um erro ao coletar todos os dados necessários para o registro.",
         variant: "destructive",
       });
       resetWorkout();
@@ -267,7 +270,16 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStatus("submitting");
 
     try {
-        await logWorkoutClient(firestore, user, startTimeDate, finalElapsedSeconds, photos[0], photos[1]);
+        await logWorkoutClient(
+            firestore, 
+            user, 
+            startTimeDate, 
+            finalElapsedSeconds, 
+            photos[0], 
+            photos[1],
+            photoTimestamps[0],
+            photoTimestamps[1]
+        );
         setStatus("success");
     } catch (error) {
         console.error("Error logging workout: ", error);
@@ -284,12 +296,18 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
   const handlePhotoTaken = (photoDataUrl: string) => {
     if (photoPromptIndex !== null) {
+      const now = new Date();
       setPhotos(prevPhotos => {
         const newPhotos: [string | null, string | null] = [...prevPhotos];
         if (newPhotos[photoPromptIndex] === null) {
             newPhotos[photoPromptIndex] = photoDataUrl;
         }
         return newPhotos;
+      });
+      setPhotoTimestamps(prevTimestamps => {
+          const newTimestamps: [Date | null, Date | null] = [...prevTimestamps];
+          newTimestamps[photoPromptIndex] = now;
+          return newTimestamps;
       });
     }
     setIsModalOpen(false);
