@@ -15,7 +15,7 @@ import { IosInstallPrompt } from "./ios-install-prompt";
 import { ToastAction } from "@/components/ui/toast";
 import { useFirestore } from "@/firebase";
 
-const MIN_WORKOUT_SECONDS = 1 * 60; // 40 minutes
+const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -221,8 +221,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setPhotoTimestamps([null, null]);
     
     const times: [number, number] = [
-      getRandomTimeInMs(10, 30), 
-      getRandomTimeInMs(31, MIN_WORKOUT_SECONDS - 1)
+      getRandomTimeInMs(1 * 60, 20 * 60), 
+      getRandomTimeInMs(21 * 60, MIN_WORKOUT_SECONDS - 1)
     ];
     setPhotoPromptTimes(times);
     schedulePhotoPrompts(times);
