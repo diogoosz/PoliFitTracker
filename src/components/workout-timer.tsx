@@ -267,6 +267,16 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       return;
     }
     
+    if (!firestore) {
+      toast({
+        title: "Erro ao conectar",
+        description: "Não foi possível acessar o Firestore. Recarregue o app.",
+        variant: "destructive",
+      });
+      resetWorkout();
+      return;
+    }
+    
     setStatus("submitting");
 
     try {
