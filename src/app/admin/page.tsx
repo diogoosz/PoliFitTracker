@@ -146,9 +146,9 @@ function UserWorkouts({ user }: { user: User }) {
                     <AdminWorkoutActions workout={workout} userId={user.id} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {workout.photo1DataUrl && (
+                    {workout.photo1Url && (
                         <div>
-                            <Image src={workout.photo1DataUrl} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                            <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
                             {workout.photo1Timestamp && (
                                 <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
                                     <ImageIcon className="h-3 w-3" />
@@ -157,9 +157,9 @@ function UserWorkouts({ user }: { user: User }) {
                             )}
                         </div>
                     )}
-                    {workout.photo2DataUrl && (
+                    {workout.photo2Url && (
                         <div>
-                             <Image src={workout.photo2DataUrl} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                             <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
                              {workout.photo2Timestamp && (
                                 <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
                                     <ImageIcon className="h-3 w-3" />

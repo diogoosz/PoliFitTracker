@@ -31,8 +31,8 @@ export async function logWorkoutClient(
     user: User, 
     startTime: Date,
     duration: number, 
-    photo1DataUrl: string, 
-    photo2DataUrl: string,
+    photo1Url: string, 
+    photo2Url: string,
     photo1Timestamp: Date,
     photo2Timestamp: Date
 ) {
@@ -50,8 +50,8 @@ export async function logWorkoutClient(
         startTime,
         endTime, 
         duration: Math.floor(duration),
-        photo1DataUrl,
-        photo2DataUrl,
+        photo1Url,
+        photo2Url,
         photo1Timestamp,
         photo2Timestamp,
         status: 'pending',

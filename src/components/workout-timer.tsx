@@ -233,10 +233,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
             photoInterval2: PHOTO_2_INTERVAL_SECONDS,
         } 
     });
-
-    // Abre o modal para a primeira foto imediatamente
-    setPhotoPromptIndex(0);
-    setIsModalOpen(true);
   };
 
   const handleStop = async () => {
