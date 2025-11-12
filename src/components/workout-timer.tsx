@@ -19,11 +19,11 @@ import { useFirestore } from "@/firebase";
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
 // ====================================================================
 // Duração total do treino em minutos.
-const WORKOUT_DURATION_MINUTES = 1;
+const WORKOUT_DURATION_MINUTES = 40;
 // Primeiro intervalo para foto em minutos (entre 1 e 20).
-const PHOTO_1_INTERVAL_MINUTES = { min: 0.16, max: 0.33 };
+const PHOTO_1_INTERVAL_MINUTES = { min: 5, max: 20 };
 // Segundo intervalo para foto em minutos (entre 20 e 39).
-const PHOTO_2_INTERVAL_MINUTES = { min: 0.66, max: 0.83 };
+const PHOTO_2_INTERVAL_MINUTES = { min: 25, max: 39 };
 
 // --- Conversões para segundos (não editar) ---
 const WORKOUT_DURATION_SECONDS = WORKOUT_DURATION_MINUTES * 60;
@@ -248,7 +248,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     if (finalElapsedSeconds < WORKOUT_DURATION_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: `O treino não atingiu a duração mínima de ${WORKOUT_DURATION_MINUTES} minutos para ser registrado.`,
+        description: `O treino não atingiu a duração mínima para ser registrado.`,
         variant: "destructive",
       });
       resetWorkout();
