@@ -10,19 +10,22 @@ import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, signInWithGoogle, isMaintenanceMode } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.isAdmin) {
+      if (isMaintenanceMode && !user.isAdmin) {
+        router.push('/maintenance');
+      } else if (user.isAdmin) {
         router.push('/admin');
       } else {
         router.push('/dashboard');
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isMaintenanceMode]);
 
+  // Show a loader while auth state is being determined, or if we have a user and are about to redirect.
   if (loading || user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -41,7 +44,7 @@ export default function LoginPage() {
             </div>
             <CardTitle className="font-headline text-2xl">Bem-vindo!</CardTitle>
             <CardDescription>
-              Acesse sua conta para continuar.
+              {isMaintenanceMode ? "O sistema está em manutenção." : "Acesse sua conta para continuar."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -53,6 +56,9 @@ export default function LoginPage() {
               <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.2 172.9 56.5l-63.6 61.8C330.3 93.3 292.3 78 248 78c-84.3 0-152.3 68.3-152.3 153s68 153 152.3 153c92.1 0 132.8-62.8 136.7-94.6H248v-73.3h235.3c4.7 26.5 7.7 54.1 7.7 85.8z"></path></svg>
               Entrar com Google
             </Button>
+             {isMaintenanceMode && (
+                <p className="text-xs text-center text-muted-foreground">O login está disponível apenas para administradores.</p>
+             )}
           </CardContent>
         </Card>
       </div>

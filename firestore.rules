@@ -33,5 +33,13 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isOwner(userId);
     }
+
+    // Rules for the new settings collection
+    match /settings/app_status {
+      // Anyone can read the maintenance status.
+      allow get: if true;
+      // Only admins can change the maintenance status.
+      allow write: if isAdmin();
+    }
   }
 }

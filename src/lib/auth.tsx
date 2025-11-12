@@ -2,8 +2,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import type { User as AppUser } from './types';
-import { useRouter } from 'next/navigation';
+import type { User as AppUser, AppSettings } from './types';
+import { useRouter, usePathname } from 'next/navigation';
 import { 
   useUser, 
   useFirebaseAuth, 
@@ -13,18 +13,19 @@ import {
 import { 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signOut as firebaseSignOut,
-  getRedirectResult
+  signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as FirebaseUser } from 'firebase/auth';
+import { Loader2 } from 'lucide-react';
 
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   signInWithGoogle: () => void;
   signOut: () => void;
+  isMaintenanceMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,19 +38,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useFirebaseAuth();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(true); // Default to true while checking
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   
+  // Effect to listen for maintenance mode changes
+  useEffect(() => {
+    if (!firestore) return;
+    const settingsRef = doc(firestore, 'settings', 'app_status');
+    const unsubscribe = onSnapshot(settingsRef, (doc) => {
+      if (doc.exists()) {
+        const settings = doc.data() as AppSettings;
+        setIsMaintenanceMode(settings.isMaintenanceMode);
+      } else {
+        // If the document doesn't exist, assume maintenance is off.
+        setIsMaintenanceMode(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [firestore]);
+
+
   const handleUserSync = useCallback(async (userToSync: FirebaseUser) => {
     if (!auth || !firestore) {
       setLoading(false);
       return;
     }
-    // This is the core logic for syncing a Firebase user to a Firestore profile.
+    
     if (!userToSync.email) {
-      // This can happen briefly after login. If we don't have an email, we can't check the domain.
-      // We log this and depend on the effect to run again when the user object is fully populated.
       console.log("Waiting for user object to populate with email...");
       return;
     }
@@ -66,64 +84,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (firestore) {
-      const userRef = doc(firestore, 'users', userToSync.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        setAppUser(userSnap.data() as AppUser);
-      } else {
-        const newUser: AppUser = {
-          id: userToSync.uid,
-          name: userToSync.displayName || 'Usuário',
-          email: userToSync.email,
-          avatarUrl: userToSync.photoURL || `https://picsum.photos/seed/${userToSync.uid}/40/40`,
-          isAdmin: false,
-        };
-        await setDoc(userRef, newUser);
-        setAppUser(newUser);
-      }
+    const userRef = doc(firestore, 'users', userToSync.uid);
+    const userSnap = await getDoc(userRef);
+    let finalUser: AppUser;
+    if (userSnap.exists()) {
+      finalUser = userSnap.data() as AppUser;
+      setAppUser(finalUser);
+    } else {
+      const newUser: AppUser = {
+        id: userToSync.uid,
+        name: userToSync.displayName || 'Usuário',
+        email: userToSync.email,
+        avatarUrl: userToSync.photoURL || `https://picsum.photos/seed/${userToSync.uid}/40/40`,
+        isAdmin: false,
+      };
+      await setDoc(userRef, newUser);
+      finalUser = newUser;
+      setAppUser(newUser);
     }
+
+    // Maintenance mode check
+    if (isMaintenanceMode && !finalUser.isAdmin) {
+      router.push('/maintenance');
+    }
+
     setLoading(false);
 
-  }, [auth, firestore, toast]);
+  }, [auth, firestore, toast, isMaintenanceMode, router]);
 
   useEffect(() => {
-    // If firebase services aren't configured, we are not loading and have no user.
     if (!areServicesAvailable) {
       setLoading(false);
       setAppUser(null);
       return;
     }
 
-    // This effect runs whenever the firebaseUser object changes.
     if (firebaseUser) {
-      // User is authenticated with Firebase.
       handleUserSync(firebaseUser);
     } else if (!isFirebaseUserLoading) {
-      // No firebase user is logged in, and the initial check is complete.
       setAppUser(null);
       setLoading(false);
     }
-    // isFirebaseUserLoading is critical here. We wait for Firebase to tell us it's done checking.
   }, [firebaseUser, isFirebaseUserLoading, handleUserSync, areServicesAvailable]);
 
+  // This effect handles redirection for non-admin users if maintenance mode is turned ON
+  // while they are already using the app.
+  useEffect(() => {
+    if (isMaintenanceMode && appUser && !appUser.isAdmin && pathname !== '/maintenance') {
+      router.push('/maintenance');
+    }
+  }, [isMaintenanceMode, appUser, pathname, router]);
 
   const signInWithGoogle = async () => {
     if (!auth) {
        toast({
         title: 'Serviço indisponível',
-        description: 'A autenticação não está configurada. Verifique as variáveis de ambiente.',
+        description: 'A autenticação não está configurada.',
         variant: 'destructive',
       });
       return;
+    }
+
+    if (isMaintenanceMode) {
+      toast({
+          title: "Em Manutenção",
+          description: "O aplicativo está em manutenção. Tente novamente mais tarde.",
+          variant: "default",
+      });
+      // We still allow sign-in attempt, as an admin might be trying to log in.
+      // The logic in handleUserSync will sort out who gets access.
     }
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // The useEffect above will handle the rest once firebaseUser state changes.
     } catch (error: any) {
-      // Only show a toast for actual errors, not for user closing the popup.
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error("Google Sign-In Error", error);
         toast({
@@ -132,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: 'destructive',
         });
       }
-      // Critical: ensure loading is false if any error occurs
       setLoading(false); 
     }
   };
@@ -144,7 +178,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/');
   };
 
-  const value = { user: appUser, loading, signInWithGoogle, signOut };
+  // While loading user or settings, show a full-screen loader to prevent flashes of content
+  if ((loading || isFirebaseUserLoading) && pathname !== '/maintenance') {
+     return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // If in maintenance and user is not an admin, and not already on the maintenance page, render maintenance.
+  if (isMaintenanceMode && (!appUser || !appUser.isAdmin) && pathname !== '/maintenance' && pathname !== '/') {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+  }
+
+  const value = { user: appUser, loading, signInWithGoogle, signOut, isMaintenanceMode };
 
   return (
     <AuthContext.Provider value={value}>
