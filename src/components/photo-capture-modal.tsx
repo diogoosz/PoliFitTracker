@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -104,7 +105,7 @@ export default function PhotoCaptureModal({ isOpen, onClose, onPhotoTaken }: Pho
         </DialogHeader>
         
         <div className="relative flex items-center justify-center p-2 bg-secondary rounded-md aspect-video">
-          <video ref={videoRef} className="w-full h-full rounded-md" autoPlay playsInline muted />
+          <video ref={videoRef} className="w-full h-full rounded-md -scale-x-100" autoPlay playsInline muted />
           {hasCameraPermission === false && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary/80 rounded-md">
                 <VideoOff className="w-16 h-16 text-muted-foreground" />
