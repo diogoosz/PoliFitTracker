@@ -27,9 +27,12 @@ const formatTime = (totalSeconds: number) => {
     .join(":");
 };
 
-// Helper for random time
-const getRandomTimeInMs = (minSeconds: number, maxSeconds: number) => 
-  (Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds) * 1000;
+// Helper para enviar mensagem para o Service Worker
+const sendMessageToServiceWorker = (message: any) => {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage(message);
+  }
+};
 
 
 interface WorkoutTimerProps {
@@ -50,8 +53,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   const [isIosInstallPromptOpen, setIsIosInstallPromptOpen] = useState(false);
   const [photoPromptIndex, setPhotoPromptIndex] = useState<0 | 1 | null>(null);
   
-  const [photoPromptTimes, setPhotoPromptTimes] = useState<[number, number]>([0,0]);
-  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   
@@ -64,18 +65,53 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   // Register Service Worker on mount
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => {
+      navigator.serviceWorker.register('/sw.js').then(registration => {
+        // console.log('Service Worker registered with scope:', registration.scope);
+
+        // Ouvinte de mensagens do Service Worker
+        navigator.serviceWorker.addEventListener('message', event => {
+          const { type } = event.data;
+          if (type === 'REQUEST_PHOTO') {
+            const photoIndex = event.data.index as 0 | 1;
+            setPhotoPromptIndex(photoIndex);
+            setIsModalOpen(true);
+          }
+        });
+
+      }).catch(err => {
         console.error('Service Worker registration failed:', err);
       });
     }
   }, []);
   
+  const resetWorkout = useCallback(() => {
+    if(status === 'running') {
+       sendMessageToServiceWorker({ type: 'STOP_WORKOUT' });
+    }
+    setStatus("idle");
+    setStartTime(null);
+    setStartTimeDate(null);
+    setElapsedSeconds(0);
+    setPhotos([null, null]);
+    setPhotoTimestamps([null, null]);
+
+    if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+    }
+  }, [status]);
+
+
   // This effect ensures the visual timer updates instantly when the app is brought to the foreground.
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && status === 'running' && startTime) {
         // Recalculate elapsed time instantly on becoming visible
-        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+        const currentElapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedSeconds(currentElapsedSeconds);
+        
+        // Solicita ao SW que verifique as fotos pendentes
+        sendMessageToServiceWorker({ type: 'CHECK_PENDING_NOTIFICATIONS' });
       }
     };
 
@@ -87,56 +123,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, [status, startTime]);
 
 
-  const showNotification = (title: string, options: NotificationOptions) => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-       navigator.serviceWorker.ready.then(registration => {
-         registration.showNotification(title, options);
-       });
-    }
-  };
-
-  const schedulePhotoPrompts = (promptTimes: [number, number]) => {
-      if (Notification.permission !== 'granted') return;
-
-      promptTimes.forEach((time, index) => {
-          if (time > 0) {
-              setTimeout(() => {
-                  showNotification('Poli Fit Tracker', {
-                      body: `Hora da sua ${index + 1}ª verificação com foto!`,
-                      icon: '/icon.svg',
-                      tag: `photo-prompt-${index}`
-                  });
-              }, time);
-          }
-      });
-  };
-
-  const resetWorkout = useCallback(() => {
-    setStatus("idle");
-    setStartTime(null);
-    setStartTimeDate(null);
-    setElapsedSeconds(0);
-    setPhotos([null, null]);
-    setPhotoTimestamps([null, null]);
-    setPhotoPromptTimes([0,0]);
-
-    if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-    }
-  }, []);
-
   const checkPhotoPrompts = useCallback(() => {
-    if (status !== 'running' || !startTime) return;
-
-    const currentElapsedTime = Date.now() - startTime;
-    photoPromptTimes.forEach((time, index) => {
-        if (time > 0 && currentElapsedTime >= time && photos[index] === null) {
-            setIsModalOpen(true);
-            setPhotoPromptIndex(index as 0 | 1);
-        }
-    });
-  }, [status, startTime, photoPromptTimes, photos]);
+    // Esta função agora está vazia porque o SW cuida disso.
+    // Poderíamos usá-la para verificar o status se o SW enviar uma mensagem.
+  }, []);
 
   useEffect(() => {
     if (status === 'running') {
@@ -144,7 +134,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         if (startTime) {
            setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
         }
-        checkPhotoPrompts();
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -152,7 +141,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, startTime, checkPhotoPrompts]);
+  }, [status, startTime]);
 
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
@@ -220,12 +209,12 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setPhotos([null, null]);
     setPhotoTimestamps([null, null]);
     
-    const times: [number, number] = [
-      getRandomTimeInMs(1 * 60, 20 * 60), 
-      getRandomTimeInMs(21 * 60, MIN_WORKOUT_SECONDS - 1)
-    ];
-    setPhotoPromptTimes(times);
-    schedulePhotoPrompts(times);
+    // Envia a mensagem para o Service Worker iniciar o processo
+    sendMessageToServiceWorker({ type: 'START_WORKOUT', payload: { startTime: now.getTime() } });
+
+    // Abre o modal para a primeira foto imediatamente
+    setPhotoPromptIndex(0);
+    setIsModalOpen(true);
   };
 
   const handleStop = async () => {
@@ -236,6 +225,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     const finalElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
     setElapsedSeconds(finalElapsedSeconds);
     setStatus("stopped");
+    sendMessageToServiceWorker({ type: 'STOP_WORKOUT' });
 
     if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
        toast({
@@ -253,7 +243,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         description: "Você deve completar as duas verificações com foto para registrar seu treino.",
         variant: "destructive",
       });
-      resetWorkout();
+      // Não resetamos, permitimos que ele tente submeter de novo
+      setStatus("running"); // Volta para o estado 'running' para que ele possa tirar a outra foto.
+      checkPhotoPrompts();
       return;
     }
     
@@ -309,9 +301,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       const now = new Date();
       setPhotos(prevPhotos => {
         const newPhotos: [string | null, string | null] = [...prevPhotos];
-        if (newPhotos[photoPromptIndex] === null) {
-            newPhotos[photoPromptIndex] = photoDataUrl;
-        }
+        newPhotos[photoPromptIndex] = photoDataUrl;
         return newPhotos;
       });
       setPhotoTimestamps(prevTimestamps => {
@@ -319,11 +309,20 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           newTimestamps[photoPromptIndex] = now;
           return newTimestamps;
       });
-    }
-    setIsModalOpen(false);
-    setPhotoPromptIndex(null);
-  };
 
+      // Se a segunda foto ainda não foi tirada, aciona o modal para ela
+      if (photoPromptIndex === 0 && photos[1] === null) {
+        setPhotoPromptIndex(1);
+        setIsModalOpen(true);
+      } else {
+        setIsModalOpen(false);
+        setPhotoPromptIndex(null);
+      }
+    } else {
+      setIsModalOpen(false);
+      setPhotoPromptIndex(null);
+    }
+  };
 
   const photosTakenCount = photos.filter(p => p !== null).length;
   const isSubmitting = status === "submitting";
@@ -368,7 +367,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
             
             {(status === "running" || status === "stopped") && !isSubmitting && (
               <div className="w-full text-center space-y-4">
-                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive" disabled={isSubmitting}>
+                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive" disabled={isSubmitting || photosTakenCount < 2}>
                     <Square className="mr-2 h-5 w-5" /> Parar Treino
                   </Button>
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
