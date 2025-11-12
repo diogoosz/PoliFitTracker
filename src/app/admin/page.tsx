@@ -32,6 +32,12 @@ interface UserWithWorkouts extends User {
   workouts: Workout[];
 }
 
+// Extensão do tipo Workout para aceitar os nomes antigos dos campos de foto
+type LegacyWorkout = Workout & {
+  photo1DataUrl?: string;
+  photo2DataUrl?: string;
+}
+
 function StatusBadge({ status }: { status: WorkoutStatus }) {
     const statusConfig = {
         pending: { icon: Clock, label: 'Pendente', className: 'bg-blue-500 hover:bg-blue-500/80' },
@@ -115,7 +121,7 @@ function UserWorkouts({ user }: { user: User }) {
     return query(collection(firestore, 'users', user.id, 'workouts'), orderBy('startTime', 'desc'));
   }, [firestore, user.id]);
 
-  const { data: workouts, isLoading } = useCollection<Workout>(workoutsQuery);
+  const { data: workouts, isLoading } = useCollection<LegacyWorkout>(workoutsQuery);
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-4"><Loader2 className="animate-spin" /> Carregando treinos...</div>;
@@ -130,6 +136,10 @@ function UserWorkouts({ user }: { user: User }) {
       {workouts.map(workout => {
         const reviewActionText = workout.status === 'approved' ? 'Aprovado' : 'Reprovado';
         
+        // Lógica de fallback para pegar a URL da foto, seja do campo novo ou antigo.
+        const photo1 = workout.photo1Url || workout.photo1DataUrl;
+        const photo2 = workout.photo2Url || workout.photo2DataUrl;
+
         return (
             <div key={workout.id} className="p-4 border rounded-lg bg-background">
                 <div className="flex justify-between items-start mb-4">
@@ -146,9 +156,9 @@ function UserWorkouts({ user }: { user: User }) {
                     <AdminWorkoutActions workout={workout} userId={user.id} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {workout.photo1Url && (
+                    {photo1 && (
                         <div>
-                            <Image src={workout.photo1Url} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                            <Image src={photo1} alt="Foto de verificação 1" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
                             {workout.photo1Timestamp && (
                                 <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
                                     <ImageIcon className="h-3 w-3" />
@@ -157,9 +167,9 @@ function UserWorkouts({ user }: { user: User }) {
                             )}
                         </div>
                     )}
-                    {workout.photo2Url && (
+                    {photo2 && (
                         <div>
-                             <Image src={workout.photo2Url} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
+                             <Image src={photo2} alt="Foto de verificação 2" width={400} height={300} className="rounded-md object-cover" data-ai-hint="workout selfie" />
                              {workout.photo2Timestamp && (
                                 <p className="text-xs text-muted-foreground italic flex items-center gap-1 mt-2">
                                     <ImageIcon className="h-3 w-3" />
@@ -259,5 +269,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
