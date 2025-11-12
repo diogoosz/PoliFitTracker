@@ -15,7 +15,22 @@ import { IosInstallPrompt } from "./ios-install-prompt";
 import { ToastAction } from "@/components/ui/toast";
 import { useFirestore } from "@/firebase";
 
-const MIN_WORKOUT_SECONDS = 40 * 60; // 40 minutes
+// ====================================================================
+// CONFIGURAÇÃO CENTRALIZADA DO TREINO
+// ====================================================================
+// Duração total do treino em minutos.
+const WORKOUT_DURATION_MINUTES = 40;
+// Primeiro intervalo para foto em minutos (entre 1 e 20).
+const PHOTO_1_INTERVAL_MINUTES = { min: 1, max: 20 };
+// Segundo intervalo para foto em minutos (entre 20 e 39).
+const PHOTO_2_INTERVAL_MINUTES = { min: 20, max: 39 };
+
+// --- Conversões para segundos (não editar) ---
+const WORKOUT_DURATION_SECONDS = WORKOUT_DURATION_MINUTES * 60;
+const PHOTO_1_INTERVAL_SECONDS = { min: PHOTO_1_INTERVAL_MINUTES.min * 60, max: PHOTO_1_INTERVAL_MINUTES.max * 60 };
+const PHOTO_2_INTERVAL_SECONDS = { min: PHOTO_2_INTERVAL_MINUTES.min * 60, max: PHOTO_2_INTERVAL_MINUTES.max * 60 };
+// ====================================================================
+
 
 // Helper to format time
 const formatTime = (totalSeconds: number) => {
@@ -209,8 +224,15 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setPhotos([null, null]);
     setPhotoTimestamps([null, null]);
     
-    // Envia a mensagem para o Service Worker iniciar o processo
-    sendMessageToServiceWorker({ type: 'START_WORKOUT', payload: { startTime: now.getTime() } });
+    // Envia a mensagem com a configuração completa para o Service Worker
+    sendMessageToServiceWorker({ 
+        type: 'START_WORKOUT', 
+        payload: { 
+            startTime: now.getTime(),
+            photoInterval1: PHOTO_1_INTERVAL_SECONDS,
+            photoInterval2: PHOTO_2_INTERVAL_SECONDS,
+        } 
+    });
 
     // Abre o modal para a primeira foto imediatamente
     setPhotoPromptIndex(0);
@@ -227,10 +249,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setStatus("stopped");
     sendMessageToServiceWorker({ type: 'STOP_WORKOUT' });
 
-    if (finalElapsedSeconds < MIN_WORKOUT_SECONDS) {
+    if (finalElapsedSeconds < WORKOUT_DURATION_SECONDS) {
        toast({
         title: "Treino Muito Curto",
-        description: "O treino não atingiu a duração mínima para ser registrado.",
+        description: `O treino não atingiu a duração mínima de ${WORKOUT_DURATION_MINUTES} minutos para ser registrado.`,
         variant: "destructive",
       });
       resetWorkout();
@@ -312,8 +334,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
       // Se a segunda foto ainda não foi tirada, aciona o modal para ela
       if (photoPromptIndex === 0 && photos[1] === null) {
-        setPhotoPromptIndex(1);
-        setIsModalOpen(true);
+        // Não precisamos mais abrir o modal para a segunda foto aqui.
+        // O Service Worker vai notificar quando for a hora certa.
+        setIsModalOpen(false);
+        setPhotoPromptIndex(null);
       } else {
         setIsModalOpen(false);
         setPhotoPromptIndex(null);
@@ -399,3 +423,5 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
+
+    

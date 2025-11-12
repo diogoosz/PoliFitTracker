@@ -1,99 +1,147 @@
-// /public/sw.js
 
-// Estado para armazenar o tempo de início do treino e os tempos de notificação.
-let workoutStartTime = null;
-let notificationTimes = [];
+// Use um nome de cache exclusivo para evitar conflitos
+const CACHE_NAME = 'poli-fit-tracker-cache-v1';
 
-// Função para gerar um tempo aleatório em milissegundos dentro de um intervalo.
-const getRandomTimeInMs = (minSeconds, maxSeconds) => 
-  (Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds) * 1000;
+// Arquivos para fazer cache offline
+const urlsToCache = [
+  '/',
+  '/manifest.json',
+  '/icon.svg',
+  // Adicione outros recursos estáticos que você deseja armazenar em cache
+  // ex: /styles/main.css, /scripts/main.js
+];
 
-// Função para agendar as notificações.
-function scheduleNotifications(startTime) {
-  // Cancela quaisquer notificações antigas para garantir que não haja sobreposição.
-  self.registration.getNotifications({ tag: 'photo-prompt-0' }).then(notifications => notifications.forEach(n => n.close()));
-  self.registration.getNotifications({ tag: 'photo-prompt-1' }).then(notifications => notifications.forEach(n => n.close()));
-
-  const minWorkoutSeconds = 40 * 60;
-
-  // Calcula os tempos de disparo em milissegundos a partir do início do treino.
-  const promptTimes = [
-    getRandomTimeInMs(1 * 60, 20 * 60), 
-    getRandomTimeInMs(21 * 60, minWorkoutSeconds - (1 * 60))
-  ].sort((a, b) => a - b); // Garante que os tempos estejam em ordem.
-
-  notificationTimes = promptTimes.map(time => startTime + time);
-
-  // Agenda a primeira notificação.
-  setTimeout(() => {
-    self.registration.showNotification('Poli Fit Tracker', {
-      body: 'Hora da sua 1ª verificação! Clique para tirar a foto.',
-      icon: '/icon.svg',
-      tag: 'photo-prompt-0'
-    });
-  }, promptTimes[0]);
-
-  // Agenda a segunda notificação.
-  setTimeout(() => {
-    self.registration.showNotification('Poli Fit Tracker', {
-      body: 'Hora da sua 2ª verificação! Clique para tirar a foto.',
-      icon: '/icon.svg',
-      tag: 'photo-prompt-1'
-    });
-  }, promptTimes[1]);
-}
-
-
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  // Limpa estados antigos quando um novo service worker é ativado.
-  workoutStartTime = null;
-  notificationTimes = [];
-  event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener('message', (event) => {
-  const { type, payload } = event.data;
-
-  if (type === 'START_WORKOUT') {
-    workoutStartTime = payload.startTime;
-    scheduleNotifications(workoutStartTime);
-  }
-
-  if (type === 'STOP_WORKOUT') {
-    // Limpa o estado quando o treino é interrompido.
-    workoutStartTime = null;
-    notificationTimes = [];
-    // Cancela quaisquer notificações pendentes.
-    self.registration.getNotifications({ tag: 'photo-prompt-0' }).then(notifications => notifications.forEach(n => n.close()));
-    self.registration.getNotifications({ tag: 'photo-prompt-1' }).then(notifications => notifications.forEach(n => n.close()));
-  }
-});
-
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  
-  const urlToOpen = new URL('/', self.location.origin).href;
-
+self.addEventListener('install', event => {
+  console.log('Service Worker: Instalando...');
   event.waitUntil(
-    self.clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then((clientList) => {
-      // Se um cliente (aba do app) já estiver aberto, foque nele.
-      for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // Se não houver cliente aberto, abra uma nova janela.
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Service Worker: Cache aberto');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        console.log('Service Worker: Arquivos em cache com sucesso');
+        return self.skipWaiting(); // Força a ativação do novo SW
+      })
+  );
+});
+
+self.addEventListener('activate', event => {
+  console.log('Service Worker: Ativando...');
+  // Remove caches antigos
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cache => {
+          if (cache !== CACHE_NAME) {
+            console.log('Service Worker: Limpando cache antigo:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => {
+        console.log('Service Worker: Ativado e pronto para controlar a página');
+        return self.clients.claim(); // Torna-se o SW ativo para todas as abas abertas
     })
   );
 });
+
+self.addEventListener('fetch', event => {
+    // Estratégia "cache first" para recursos cacheados
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Se o recurso estiver no cache, retorna do cache
+        if (response) {
+          return response;
+        }
+        // Caso contrário, busca na rede
+        return fetch(event.request);
+      })
+  );
+});
+
+// ====================================================================
+// LÓGICA DE NOTIFICAÇÃO DE TREINO
+// ====================================================================
+
+let workoutState = {
+  startTime: null,
+  photoTimers: [],
+  photoInterval1: null,
+  photoInterval2: null
+};
+
+// Função para gerar um tempo aleatório dentro de um intervalo em segundos
+function getRandomTimeInMs(minSeconds, maxSeconds) {
+    const minMs = minSeconds * 1000;
+    const maxMs = maxSeconds * 1000;
+    return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+}
+
+// Função para agendar uma notificação
+function scheduleNotification(delay, title, body, tag) {
+    const timerId = setTimeout(() => {
+        self.registration.showNotification(title, {
+            body: body,
+            icon: '/apple-icon.png',
+            badge: '/icon.svg',
+            tag: tag
+        });
+        // Comunica à página que é hora de tirar a foto
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => {
+                client.postMessage({ type: 'REQUEST_PHOTO', index: tag === 'photo-1' ? 0 : 1 });
+            });
+        });
+    }, delay);
+    return timerId;
+}
+
+// Limpa todos os agendamentos pendentes
+function clearAllTimers() {
+    workoutState.photoTimers.forEach(timerId => clearTimeout(timerId));
+    workoutState.photoTimers = [];
+    workoutState.startTime = null;
+    workoutState.photoInterval1 = null;
+    workoutState.photoInterval2 = null;
+}
+
+self.addEventListener('message', event => {
+    const { type, payload } = event.data;
+
+    if (type === 'START_WORKOUT') {
+        console.log('SW: Início do treino recebido', payload);
+        clearAllTimers(); // Garante que não há agendamentos antigos
+        
+        workoutState.startTime = payload.startTime;
+        workoutState.photoInterval1 = payload.photoInterval1;
+        workoutState.photoInterval2 = payload.photoInterval2;
+
+        const photoTime1 = getRandomTimeInMs(payload.photoInterval1.min, payload.photoInterval1.max);
+        const photoTime2 = getRandomTimeInMs(payload.photoInterval2.min, payload.photoInterval2.max);
+        
+        console.log(`SW: Agendando foto 1 para ${photoTime1 / 1000 / 60} min`);
+        console.log(`SW: Agendando foto 2 para ${photoTime2 / 1000 / 60} min`);
+
+        const timer1 = scheduleNotification(photoTime1, 'Poli Fit Tracker', 'Hora da primeira foto de verificação!', 'photo-1');
+        const timer2 = scheduleNotification(photoTime2, 'Poli Fit Tracker', 'Hora da segunda foto de verificação!', 'photo-2');
+        
+        workoutState.photoTimers.push(timer1, timer2);
+    }
+
+    if (type === 'STOP_WORKOUT') {
+        console.log('SW: Parada do treino recebida');
+        clearAllTimers();
+    }
+    
+    // Este caso pode ser usado para depuração ou re-sincronização
+    if (type === 'CHECK_PENDING_NOTIFICATIONS') {
+       // A lógica de `setTimeout` já lida com isso. 
+       // Se o SW foi "morto" e reiniciado, o tempo já passou e as notificações não serão disparadas.
+       // Uma lógica mais avançada poderia recalcular, mas por agora, mantemos simples.
+       console.log('SW: Verificação de notificações pendentes solicitada.');
+    }
+});
+
+    
