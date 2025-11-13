@@ -4,11 +4,22 @@ import { initializeServerApp } from '@/firebase/server-init';
 import * as admin from 'firebase-admin';
 import type { NotificationTask } from '@/lib/types';
 
-// This ensures the route is treated as dynamic, which is best practice for cron jobs.
 export const dynamic = 'force-dynamic';
 
+// URL da API REST do Firebase Cloud Messaging
+const FCM_API_URL = `https://fcm.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/messages:send`;
+
+/**
+ * Função para obter o token de acesso OAuth2 para autenticar na API FCM.
+ */
+async function getAccessToken() {
+  const { credential } = admin.app();
+  const accessToken = await credential.getAccessToken();
+  return accessToken.access_token;
+}
+
 export async function GET(request: Request) {
-  // 1. Secure the endpoint (important for production)
+  // 1. Segurança do endpoint
   const authHeader = request.headers.get('authorization');
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Unauthorized', { status: 401 });
@@ -16,10 +27,9 @@ export async function GET(request: Request) {
 
   try {
     const { firestore, app } = initializeServerApp();
-    const messaging = admin.messaging(app);
     const now = admin.firestore.Timestamp.now();
     
-    // 2. Query for pending tasks that are due
+    // 2. Busca por tarefas pendentes
     const tasksSnapshot = await firestore.collection('notification_tasks')
       .where('status', '==', 'pending')
       .where('sendAt', '<=', now)
@@ -29,35 +39,47 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'Nenhuma notificação para enviar.' });
     }
 
-    const promises: Promise<any>[] = [];
+    const accessToken = await getAccessToken();
     const sentTasksIds: string[] = [];
+    const promises: Promise<any>[] = [];
 
-    // 3. Send notifications
+    // 3. Envia as notificações usando a API REST
     tasksSnapshot.forEach(doc => {
       const task = doc.data() as Omit<NotificationTask, 'id'>;
       
-      // CORREÇÃO: O payload da tarefa já é a mensagem completa.
-      // Acessamos o objeto `task.payload` diretamente, pois ele já contém
-      // o token, notification, webpush, etc.
-      const message: admin.messaging.Message = task.payload as admin.messaging.Message;
+      // O `task.payload` já contém a estrutura da mensagem
+      const fcmMessage = {
+        message: task.payload,
+      };
 
-      const sendPromise = messaging.send(message)
-        .then(response => {
-          console.log('Notificação enviada com sucesso:', response, 'para o usuário:', task.userId);
-          sentTasksIds.push(doc.id);
-        })
-        .catch(error => {
-          console.error('Erro ao enviar notificação para o token:', task.fcmToken, error);
-          // Optionally update the task status to 'error'
-          return doc.ref.update({ status: 'error' });
-        });
+      const sendPromise = fetch(FCM_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(fcmMessage),
+      })
+      .then(async response => {
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`FCM API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+        }
+        console.log('Notificação enviada com sucesso para o usuário:', task.userId);
+        sentTasksIds.push(doc.id);
+        return response.json();
+      })
+      .catch(error => {
+        console.error('Erro ao enviar notificação para o token:', task.fcmToken, error);
+        return doc.ref.update({ status: 'error' });
+      });
       
       promises.push(sendPromise);
     });
 
     await Promise.all(promises);
 
-    // 4. Delete sent tasks in a batch
+    // 4. Deleta as tarefas enviadas
     if (sentTasksIds.length > 0) {
       const batch = firestore.batch();
       sentTasksIds.forEach(id => {

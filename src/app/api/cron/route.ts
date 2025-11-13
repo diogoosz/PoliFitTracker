@@ -1,8 +1,8 @@
+
 import { NextResponse } from 'next/server';
 import { initializeServerApp } from '@/firebase/server-init';
-import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
-// This ensures the route is treated as dynamic, which is best practice for cron jobs.
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
@@ -19,32 +19,41 @@ export async function GET(request: Request) {
     const { firestore } = initializeServerApp();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
-    let deletedCount = 0;
-
+    const cutoffTimestamp = Timestamp.fromDate(thirtyDaysAgo);
+    
     console.log(`Starting cleanup for workouts older than ${thirtyDaysAgo.toISOString()}`);
 
     const usersSnapshot = await firestore.collection('users').get();
     
-    await Promise.all(usersSnapshot.docs.map(async (userDoc) => {
-        const userId = userDoc.id;
-        const workoutsRef = firestore.collection('users').doc(userId).collection('workouts');
-        const oldWorkoutsSnapshot = await workoutsRef.where('startTime', '<', cutoffTimestamp).get();
+    let totalDeleted = 0;
 
-        if (oldWorkoutsSnapshot.empty) {
-            return; 
-        }
+    for (const userDoc of usersSnapshot.docs) {
+      const userId = userDoc.id;
+      const workoutsRef = firestore.collection('users').doc(userId).collection('workouts');
+      const oldWorkoutsQuery = workoutsRef.where('startTime', '<', cutoffTimestamp);
+      
+      // Firestore não suporta deleção de subcoleções em massa do lado do servidor diretamente.
+      // É preciso buscar e deletar em batches.
+      const oldWorkoutsSnapshot = await oldWorkoutsQuery.get();
 
-        console.log(`Found ${oldWorkoutsSnapshot.size} old workouts for user ${userId}`);
+      if (oldWorkoutsSnapshot.empty) {
+        continue;
+      }
 
-        await Promise.all(oldWorkoutsSnapshot.docs.map(async (workoutDoc) => {
-            await workoutDoc.ref.delete();
-            deletedCount++;
-            console.log(`Deleted workout ${workoutDoc.id} from user ${userId}`);
-        }));
-    }));
+      console.log(`Found ${oldWorkoutsSnapshot.size} old workouts for user ${userId} to delete.`);
 
-    const message = `Cleanup successful. Deleted ${deletedCount} old workouts.`;
+      // Deletar documentos em um batch
+      const batch = firestore.batch();
+      oldWorkoutsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+
+      totalDeleted += oldWorkoutsSnapshot.size;
+      console.log(`Deleted ${oldWorkoutsSnapshot.size} workouts for user ${userId}.`);
+    }
+
+    const message = `Cleanup successful. Deleted a total of ${totalDeleted} old workouts.`;
     console.log(message);
     return NextResponse.json({ success: true, message });
 
