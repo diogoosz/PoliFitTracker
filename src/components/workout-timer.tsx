@@ -17,7 +17,7 @@ import { useFirestore } from "@/firebase";
 
 // ====================================================================
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
-// =================================e===================================
+// ====================================================================
 // Duração total do treino em minutos.
 const WORKOUT_DURATION_MINUTES = 1;
 // Primeiro intervalo para foto em minutos (ex: entre 10 e 15 minutos de treino)
@@ -40,13 +40,6 @@ const formatTime = (totalSeconds: number) => {
   return [hours, minutes, seconds]
     .map((v) => (v < 10 ? "0" + v : v))
     .join(":");
-};
-
-// Helper para enviar mensagem para o Service Worker
-const sendMessageToServiceWorker = (message: any) => {
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage(message);
-  }
 };
 
 
@@ -77,31 +70,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     );
   }, [userWorkouts]);
 
-  // Register Service Worker on mount
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(registration => {
-        // console.log('Service Worker registered with scope:', registration.scope);
-
-        // Ouvinte de mensagens do Service Worker
-        navigator.serviceWorker.addEventListener('message', event => {
-          const { type, photoIndex } = event.data;
-          if (type === 'REQUEST_PHOTO' && (photoIndex === 0 || photoIndex === 1)) {
-            setPhotoPromptIndex(photoIndex);
-            setIsModalOpen(true);
-          }
-        });
-
-      }).catch(err => {
-        console.error('Service Worker registration failed:', err);
-      });
-    }
-  }, []);
-  
   const resetWorkout = useCallback(() => {
-    if(status === 'running') {
-       sendMessageToServiceWorker({ type: 'STOP_WORKOUT' });
-    }
     setStatus("idle");
     setStartTime(null);
     setStartTimeDate(null);
@@ -113,7 +82,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         clearInterval(intervalRef.current);
         intervalRef.current = null;
     }
-  }, [status]);
+  }, []);
 
 
   // This effect ensures the visual timer updates instantly when the app is brought to the foreground.
@@ -123,9 +92,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         // Recalculate elapsed time instantly on becoming visible
         const currentElapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
         setElapsedSeconds(currentElapsedSeconds);
-        
-        // Solicita ao SW que verifique as fotos pendentes
-        sendMessageToServiceWorker({ type: 'CHECK_PENDING_NOTIFICATIONS' });
       }
     };
 
@@ -138,16 +104,41 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
 
   const checkPhotoPrompts = useCallback(() => {
-    // Esta função agora está vazia porque o SW cuida disso.
-    // Poderíamos usá-la para verificar o status se o SW enviar uma mensagem.
-  }, []);
+    const currentElapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
+
+    // Check for photo 1
+    if (
+      currentElapsed >= PHOTO_1_INTERVAL_SECONDS.min &&
+      currentElapsed <= PHOTO_1_INTERVAL_SECONDS.max &&
+      !photos[0] &&
+      photoPromptIndex === null && // Garante que um prompt já não esteja ativo
+      status === 'running'
+    ) {
+      setPhotoPromptIndex(0);
+      setIsModalOpen(true);
+      return; // Importante para não acionar a foto 2 na mesma verificação
+    }
+
+    // Check for photo 2
+    if (
+      currentElapsed >= PHOTO_2_INTERVAL_SECONDS.min &&
+      currentElapsed <= PHOTO_2_INTERVAL_SECONDS.max &&
+      !photos[1] &&
+      photoPromptIndex === null && // Garante que um prompt já não esteja ativo
+      status === 'running'
+    ) {
+      setPhotoPromptIndex(1);
+      setIsModalOpen(true);
+    }
+  }, [startTime, elapsedSeconds, photos, photoPromptIndex, status]);
+
 
   useEffect(() => {
     if (status === 'running') {
       intervalRef.current = setInterval(() => {
-        if (startTime) {
-           setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-        }
+        const newElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        setElapsedSeconds(newElapsedSeconds);
+        checkPhotoPrompts(); // Verifica a cada segundo se é hora da foto
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -155,7 +146,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, startTime]);
+  }, [status, startTime, checkPhotoPrompts]);
 
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
@@ -169,45 +160,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, [status, resetWorkout, onWorkoutLogged]);
 
   const handleStart = async () => {
-    if (typeof window === 'undefined') return;
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isStandalone = ('standalone' in navigator) && (navigator as any).standalone;
-
-    if (isIOS && !isStandalone) {
-        toast({
-            title: "Ative as Notificações",
-            description: "Para receber lembretes, adicione o app à sua Tela de Início.",
-            variant: "default",
-            duration: 10000,
-            action: <ToastAction altText="Ver Tutorial" onClick={() => setIsIosInstallPromptOpen(true)}>Ver Tutorial</ToastAction>,
-        });
-    } else if ('Notification' in window) {
-      if (Notification.permission === "default") {
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-              toast({
-                  title: "Notificações Desativadas",
-                  description: "Você não receberá lembretes para as fotos.",
-                  variant: "default",
-              });
-          }
-      } else if (Notification.permission === 'denied') {
-          toast({
-              title: "Notificações Bloqueadas",
-              description: "Habilite as notificações nas configurações do seu navegador para os lembretes.",
-              variant: "destructive",
-          });
-      }
-    } else {
-        toast({
-            title: "Navegador não suportado",
-            description: "Seu navegador não suporta notificações. O cronômetro continuará, mas sem os alertas.",
-            variant: "destructive",
-        });
-    }
-
-    if(hasTrainedToday) {
+     if(hasTrainedToday) {
         toast({
             title: "Treino Já Registrado",
             description: "Você já registrou seu treino hoje. Volte amanhã para mais!",
@@ -222,16 +175,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoTimestamps([null, null]);
-    
-    // Envia a mensagem com a configuração completa para o Service Worker
-    sendMessageToServiceWorker({ 
-        type: 'START_WORKOUT', 
-        payload: { 
-            startTime: now.getTime(),
-            photoInterval1: PHOTO_1_INTERVAL_SECONDS,
-            photoInterval2: PHOTO_2_INTERVAL_SECONDS,
-        } 
-    });
   };
 
   const handleStop = async () => {
@@ -242,7 +185,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     const finalElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
     setElapsedSeconds(finalElapsedSeconds);
     setStatus("stopped");
-    sendMessageToServiceWorker({ type: 'STOP_WORKOUT' });
 
     if (finalElapsedSeconds < WORKOUT_DURATION_SECONDS) {
        toast({
@@ -409,7 +351,3 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
-
-    
-
-    
