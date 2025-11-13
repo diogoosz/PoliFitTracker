@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       // CORREÇÃO: O payload da tarefa já é a mensagem completa.
       // Acessamos o objeto `task.payload` diretamente, pois ele já contém
       // o token, notification, webpush, etc.
-      const message: admin.messaging.Message = task.payload;
+      const message: admin.messaging.Message = task.payload as admin.messaging.Message;
 
       const sendPromise = messaging.send(message)
         .then(response => {
