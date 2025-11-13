@@ -14,6 +14,7 @@ import { isToday } from "date-fns";
 import { IosInstallPrompt } from "./ios-install-prompt";
 import { useFirestore } from "@/firebase";
 import { useSearchParams } from 'next/navigation';
+import { getFCMToken } from '@/lib/notification-manager';
 
 
 // ====================================================================
@@ -161,14 +162,14 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, [status, resetWorkout, onWorkoutLogged]);
 
   const startWorkoutAndScheduleNotifications = async () => {
-      // 1. Get FCM token
-      // This is a simplified example. In a real app, you'd get this from your messaging service setup.
-      const fcmToken = localStorage.getItem('fcmToken');
-      if (!fcmToken || !user) {
-          toast({ title: 'Aviso', description: 'Não foi possível agendar notificações push. O app não irá te notificar se estiver em segundo plano.' });
-          // We proceed without notifications, the local timer will still work.
+      if (!user) return;
+      
+      const fcmToken = await getFCMToken();
+      
+      if (!fcmToken) {
+          toast({ title: 'Aviso', description: 'Permissão de notificação negada. O app não irá te notificar se estiver em segundo plano.' });
+          // Proceed without notifications, the local timer will still work.
       } else {
-        // 2. Call the API to schedule notifications
         try {
           const response = await fetch('/api/schedule-notifications', {
             method: 'POST',
@@ -181,7 +182,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           }
         } catch (error) {
             console.error("Failed to schedule notifications:", error);
-            // Don't block the workout from starting, just log the error.
+            // Don't block the workout from starting, just log the error and notify the user.
+             toast({ title: 'Aviso', description: 'Não foi possível agendar as notificações push no servidor.' });
         }
       }
   };
@@ -196,6 +198,11 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         });
         return;
     }
+
+    // Schedule notifications first. This will trigger the permission prompt if needed.
+    await startWorkoutAndScheduleNotifications();
+    
+    // After attempting to schedule, start the timer.
     const now = new Date();
     setStatus("running");
     setStartTime(now.getTime());
@@ -203,9 +210,6 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoTimestamps([null, null]);
-
-    // Schedule notifications in the background
-    startWorkoutAndScheduleNotifications();
   };
 
   const handleStop = async () => {
