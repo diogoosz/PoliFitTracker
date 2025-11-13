@@ -11,10 +11,10 @@ export function initializeServerApp() {
     };
   }
   
-  const serviceAccountString = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const serviceAccountStringOrObject = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
-  if (!serviceAccountString) {
+  if (!serviceAccountStringOrObject) {
       throw new Error('The GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
   }
   if (!storageBucket) {
@@ -22,9 +22,11 @@ export function initializeServerApp() {
   }
 
   try {
-      // If the service account is a stringified JSON, parse it.
-      // Otherwise, assume it's a file path (for non-Vercel environments).
-      const serviceAccount = JSON.parse(serviceAccountString);
+      // Vercel can provide the env var as a string or a pre-parsed object.
+      // This handles both cases gracefully.
+      const serviceAccount = typeof serviceAccountStringOrObject === 'string'
+        ? JSON.parse(serviceAccountStringOrObject)
+        : serviceAccountStringOrObject;
       
       const app = admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
@@ -37,8 +39,6 @@ export function initializeServerApp() {
           storage: admin.storage()
       };
   } catch (error) {
-      // This catch block handles cases where the env var is not a valid JSON string.
-      // We can add logic here to try loading from a file path if needed.
       console.error("Failed to parse or initialize Firebase Admin SDK from environment variable:", error);
       throw new Error("Could not initialize Firebase Admin. Check the GOOGLE_APPLICATION_CREDENTIALS format.");
   }
