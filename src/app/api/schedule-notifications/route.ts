@@ -1,9 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeServerApp } from '@/firebase/server-init';
-import * as admin from 'firebase-admin';
-import type { NotificationTask } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
+import type { NotificationTask } from '@/lib/types';
 
 // ====================================================================
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
@@ -42,14 +41,14 @@ export async function POST(request: NextRequest) {
             title: 'Poli Fit Tracker - Foto 1',
             body: 'Hora da primeira foto de verificação! Toque para abrir a câmera.',
         },
+        data: {
+          photoIndex: "0" // Use string as per FCM spec
+        },
         webpush: {
             notification: {
                 icon: '/icon-192x192.png',
                 tag: 'photo-request-1',
-                data: {
-                    url: `/dashboard?photo_prompt=1`,
-                    photoIndex: '1'
-                }
+                renotify: true,
             },
             fcm_options: {
                 link: `/dashboard?photo_prompt=1`
@@ -73,14 +72,14 @@ export async function POST(request: NextRequest) {
             title: 'Poli Fit Tracker - Foto 2',
             body: 'Última verificação! Toque para tirar a segunda foto.',
         },
+        data: {
+            photoIndex: "1" // Use string as per FCM spec
+        },
         webpush: {
             notification: {
                 icon: '/icon-192x192.png',
                 tag: 'photo-request-2',
-                data: {
-                    url: `/dashboard?photo_prompt=2`,
-                    photoIndex: '2'
-                }
+                renotify: true,
             },
             fcm_options: {
                 link: `/dashboard?photo_prompt=2`
@@ -110,3 +109,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
+
+    

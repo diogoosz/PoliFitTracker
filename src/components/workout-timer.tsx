@@ -20,9 +20,9 @@ import { useFirestore } from "@/firebase";
 // =================================e===================================
 // Duração total do treino em minutos.
 const WORKOUT_DURATION_MINUTES = 1;
-// Primeiro intervalo para foto em minutos (entre 1 e 20).
+// Primeiro intervalo para foto em minutos (ex: entre 10 e 15 minutos de treino)
 const PHOTO_1_INTERVAL_MINUTES = { min: 0.30, max: 0.55 };
-// Segundo intervalo para foto em minutos (entre 20 e 39).
+// Segundo intervalo para foto em minutos (ex: entre 25 e 35 minutos de treino)
 const PHOTO_2_INTERVAL_MINUTES = { min: 0.65, max: 0.85 };
 
 // --- Conversões para segundos (não editar) ---
@@ -85,9 +85,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
         // Ouvinte de mensagens do Service Worker
         navigator.serviceWorker.addEventListener('message', event => {
-          const { type } = event.data;
-          if (type === 'REQUEST_PHOTO') {
-            const photoIndex = event.data.index as 0 | 1;
+          const { type, photoIndex } = event.data;
+          if (type === 'REQUEST_PHOTO' && (photoIndex === 0 || photoIndex === 1)) {
             setPhotoPromptIndex(photoIndex);
             setIsModalOpen(true);
           }
@@ -261,11 +260,8 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         description: "Você deve completar as duas verificações com foto para registrar seu treino.",
         variant: "destructive",
       });
-      // Não resetamos, permitimos que ele tente submeter de novo
-      // Voltamos o status para running para que o timer continue visualmente
-      // e o usuário possa ser notificado ou tirar a foto se o modal abrir.
-      setStatus("running"); 
-      sendMessageToServiceWorker({ type: 'CHECK_PENDING_NOTIFICATIONS' });
+      // Reset the workout so the user is not stuck.
+      resetWorkout();
       return;
     }
     
@@ -413,5 +409,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
+
+    
 
     
