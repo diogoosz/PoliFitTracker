@@ -112,6 +112,48 @@
         "photo2Url",
         "status"
       ]
+    },
+    "NotificationTask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NotificationTask",
+      "type": "object",
+      "description": "Represents a scheduled push notification to be sent to a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user to whom the notification will be sent."
+        },
+        "fcmToken": {
+          "type": "string",
+          "description": "The Firebase Cloud Messaging token of the user's device."
+        },
+        "payload": {
+          "type": "object",
+          "description": "The full payload for the FCM message, including notification, data, and webpush config."
+        },
+        "sendAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The exact timestamp when the notification should be sent."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the task.",
+          "enum": ["pending", "sent", "error"]
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "fcmToken",
+        "payload",
+        "sendAt",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -156,8 +198,20 @@
             }
           ]
         }
+      },
+      {
+        "path": "/notification_tasks/{taskId}",
+        "definition": {
+          "entityName": "NotificationTask",
+          "schema": {
+            "$ref": "#/backend/entities/NotificationTask"
+          },
+          "description": "A collection of notification tasks to be processed by a server-side cron job. Client can only create tasks; server processes and deletes them."
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed for security and scalability. User data is stored in `/users/{userId}`. Workouts are stored as a subcollection under each user (`/users/{userId}/workouts/{workoutId}`) to establish clear ownership and simplify security rules. Instead of storing photo files in a separate collection, the direct URLs to the images in Firebase Storage are stored within the workout document (`photo1Url`, `photo2Url`). This simplifies data retrieval, as a single document read fetches all necessary information for a workout, including its verification images. This design follows path-based ownership and ensures efficient, secure queries."
+    "reasoning": "The Firestore data structure is designed for security and scalability. User data is stored in `/users/{userId}`. Workouts are stored as a subcollection under each user (`/users/{userId}/workouts/{workoutId}`) to establish clear ownership and simplify security rules. Instead of storing photo files in a separate collection, the direct URLs to the images in Firebase Storage are stored within the workout document (`photo1Url`, `photo2Url`). This simplifies data retrieval, as a single document read fetches all necessary information for a workout, including its verification images. This design follows path-based ownership and ensures efficient, secure queries. The `/notification_tasks` collection is a 'write-only' queue for clients, processed securely by a server-side function."
   }
 }
+
+    

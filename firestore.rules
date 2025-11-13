@@ -1,3 +1,4 @@
+
 /**
  * @file Firestore Security Rules for Poli Fit Tracker
  * @core_philosophy This ruleset enforces a strict user-ownership model, with a specific exception for administrators who need to view all user data.
@@ -41,5 +42,16 @@ service cloud.firestore {
       // Only admins can change the maintenance status.
       allow write: if isAdmin();
     }
+
+    // Rules for notification tasks collection
+    match /notification_tasks/{taskId} {
+      // Only the user who owns the task can create it.
+      allow create: if isOwner(request.resource.data.userId);
+      // No one can read/update/delete tasks from the client-side.
+      // These will be managed by a server-side process (cron job).
+      allow read, update, delete: if false;
+    }
   }
 }
+
+    

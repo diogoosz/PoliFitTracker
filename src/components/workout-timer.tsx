@@ -14,6 +14,8 @@ import { isToday } from "date-fns";
 import { IosInstallPrompt } from "./ios-install-prompt";
 import { ToastAction } from "@/components/ui/toast";
 import { useFirestore } from "@/firebase";
+import { useSearchParams } from 'next/navigation';
+
 
 // ====================================================================
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
@@ -51,6 +53,8 @@ interface WorkoutTimerProps {
 export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
+
   const [status, setStatus] = useState<"idle" | "running" | "stopped" | "submitting" | "success">("idle");
   const [startTime, setStartTime] = useState<number | null>(null);
   const [startTimeDate, setStartTimeDate] = useState<Date | null>(null);
@@ -84,53 +88,51 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
-
-  // This effect ensures the visual timer updates instantly when the app is brought to the foreground.
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && status === 'running' && startTime) {
-        // Recalculate elapsed time instantly on becoming visible
-        const currentElapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        setElapsedSeconds(currentElapsedSeconds);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [status, startTime]);
-
-
   const checkPhotoPrompts = useCallback(() => {
     const currentElapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
 
-    // Check for photo 1
-    if (
-      currentElapsed >= PHOTO_1_INTERVAL_SECONDS.min &&
-      currentElapsed <= PHOTO_1_INTERVAL_SECONDS.max &&
-      !photos[0] &&
-      photoPromptIndex === null && // Garante que um prompt já não esteja ativo
-      status === 'running'
-    ) {
+    const shouldPrompt = (interval: { min: number, max: number }, photoIndex: 0 | 1) => 
+      currentElapsed >= interval.min &&
+      currentElapsed <= interval.max &&
+      !photos[photoIndex] &&
+      photoPromptIndex === null &&
+      status === 'running';
+
+    if (shouldPrompt(PHOTO_1_INTERVAL_SECONDS, 0)) {
       setPhotoPromptIndex(0);
       setIsModalOpen(true);
-      return; // Importante para não acionar a foto 2 na mesma verificação
-    }
-
-    // Check for photo 2
-    if (
-      currentElapsed >= PHOTO_2_INTERVAL_SECONDS.min &&
-      currentElapsed <= PHOTO_2_INTERVAL_SECONDS.max &&
-      !photos[1] &&
-      photoPromptIndex === null && // Garante que um prompt já não esteja ativo
-      status === 'running'
-    ) {
+    } else if (shouldPrompt(PHOTO_2_INTERVAL_SECONDS, 1)) {
       setPhotoPromptIndex(1);
       setIsModalOpen(true);
     }
   }, [startTime, elapsedSeconds, photos, photoPromptIndex, status]);
+
+
+  // This effect handles opening the camera modal when arriving via a notification link.
+  useEffect(() => {
+    const photoPrompt = searchParams.get('photo_prompt');
+    if (status === 'running') {
+      if (photoPrompt === '1' && !photos[0]) {
+        setPhotoPromptIndex(0);
+        setIsModalOpen(true);
+      } else if (photoPrompt === '2' && !photos[1]) {
+        setPhotoPromptIndex(1);
+        setIsModalOpen(true);
+      }
+    }
+  }, [searchParams, status, photos]);
+
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && status === 'running' && startTime) {
+        const currentElapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedSeconds(currentElapsedSeconds);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [status, startTime]);
 
 
   useEffect(() => {
@@ -138,7 +140,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
       intervalRef.current = setInterval(() => {
         const newElapsedSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
         setElapsedSeconds(newElapsedSeconds);
-        checkPhotoPrompts(); // Verifica a cada segundo se é hora da foto
+        // This check runs every second to see if it's time to open the camera modal
+        // when the app is in the foreground.
+        checkPhotoPrompts();
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -159,6 +163,29 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => clearTimeout(resetTimer);
   }, [status, resetWorkout, onWorkoutLogged]);
 
+  const startWorkoutAndScheduleNotifications = async () => {
+      // 1. Get FCM token (we assume this is handled elsewhere, e.g., in a parent component or context)
+      // For now, we'll retrieve it from localStorage or prompt the user.
+      const fcmToken = localStorage.getItem('fcmToken'); // Example
+      if (!fcmToken || !user) {
+          toast({ title: 'Erro', description: 'Não foi possível agendar notificações. Token FCM ausente.' });
+          // Decide if you want to proceed without notifications or stop. For now, we proceed.
+      } else {
+        // 2. Call the API to schedule notifications
+        try {
+          await fetch('/api/schedule-notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fcmToken, userId: user.id }),
+          });
+        } catch (error) {
+            console.error("Failed to schedule notifications:", error);
+            // Don't block the workout from starting, just log the error.
+        }
+      }
+  };
+
+
   const handleStart = async () => {
      if(hasTrainedToday) {
         toast({
@@ -175,6 +202,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     setElapsedSeconds(0);
     setPhotos([null, null]);
     setPhotoTimestamps([null, null]);
+
+    // Schedule notifications in the background
+    startWorkoutAndScheduleNotifications();
   };
 
   const handleStop = async () => {
@@ -351,3 +381,5 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
+
+    

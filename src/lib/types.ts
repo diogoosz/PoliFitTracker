@@ -17,8 +17,8 @@ export interface Workout {
   startTime: Timestamp;
   endTime: Timestamp;
   duration: number; // in seconds
-  photo1Url?: string; // Tornando opcional
-  photo2Url?: string; // Tornando opcional
+  photo1Url?: string;
+  photo2Url?: string;
   photo1Timestamp?: Timestamp;
   photo2Timestamp?: Timestamp;
   status: WorkoutStatus;
@@ -29,3 +29,14 @@ export interface Workout {
 export interface AppSettings {
   isMaintenanceMode: boolean;
 }
+
+// Defines a task to send a notification at a specific time.
+export interface NotificationTask {
+  userId: string;
+  fcmToken: string;
+  payload: any; // Using `any` to avoid type conflicts between client/server MessagingPayload
+  sendAt: Timestamp;
+  status: 'pending' | 'sent' | 'error';
+}
+
+    
