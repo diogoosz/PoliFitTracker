@@ -1,7 +1,7 @@
 
 'use client';
 
-import { doc, updateDoc, Firestore, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, Firestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 export async function updateWorkoutStatus(
@@ -22,7 +22,7 @@ export async function updateWorkoutStatus(
   await updateDoc(workoutRef, { 
     status,
     reviewerName,
-    reviewedAt: new Date() // Use client time for review, can be changed to serverTimestamp if needed
+    reviewedAt: serverTimestamp()
   });
 }
 
@@ -42,6 +42,10 @@ export async function logWorkoutClient(
     if (!user) {
         throw new Error("User not authenticated.");
     }
+    if (!photo1Url || !photo2Url) {
+        throw new Error("As duas fotos de verificação são obrigatórias.");
+    }
+
 
     const endTime = new Date(startTime.getTime() + duration * 1000);
 

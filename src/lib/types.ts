@@ -17,8 +17,8 @@ export interface Workout {
   startTime: Timestamp;
   endTime: Timestamp;
   duration: number; // in seconds
-  photo1Url: string;
-  photo2Url: string;
+  photo1Url?: string; // Tornando opcional
+  photo2Url?: string; // Tornando opcional
   photo1Timestamp?: Timestamp;
   photo2Timestamp?: Timestamp;
   status: WorkoutStatus;

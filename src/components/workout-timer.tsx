@@ -17,7 +17,7 @@ import { useFirestore } from "@/firebase";
 
 // ====================================================================
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
-// ====================================================================
+// =================================e===================================
 // Duração total do treino em minutos.
 const WORKOUT_DURATION_MINUTES = 40;
 // Primeiro intervalo para foto em minutos (entre 1 e 20).
@@ -262,12 +262,14 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         variant: "destructive",
       });
       // Não resetamos, permitimos que ele tente submeter de novo
-      setStatus("running"); // Volta para o estado 'running' para que ele possa tirar a outra foto.
-      checkPhotoPrompts();
+      // Voltamos o status para running para que o timer continue visualmente
+      // e o usuário possa ser notificado ou tirar a foto se o modal abrir.
+      setStatus("running"); 
+      sendMessageToServiceWorker({ type: 'CHECK_PENDING_NOTIFICATIONS' });
       return;
     }
     
-    if (!user || !startTimeDate || !photoTimestamps[0] || !photoTimestamps[1]) {
+    if (!user || !startTimeDate || !photoTimestamps[0] || !photoTimestamps[1] || !photos[0] || !photos[1]) {
       toast({
         title: "Dados incompletos para registrar",
         description: "Ocorreu um erro ao coletar todos os dados necessários para o registro.",
@@ -291,7 +293,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
 
     try {
         await logWorkoutClient(
-            firestore!, 
+            firestore, 
             user, 
             startTimeDate, 
             finalElapsedSeconds, 
@@ -327,17 +329,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           newTimestamps[photoPromptIndex] = now;
           return newTimestamps;
       });
+      setIsModalOpen(false);
+      setPhotoPromptIndex(null);
 
-      // Se a segunda foto ainda não foi tirada, aciona o modal para ela
-      if (photoPromptIndex === 0 && photos[1] === null) {
-        // Não precisamos mais abrir o modal para a segunda foto aqui.
-        // O Service Worker vai notificar quando for a hora certa.
-        setIsModalOpen(false);
-        setPhotoPromptIndex(null);
-      } else {
-        setIsModalOpen(false);
-        setPhotoPromptIndex(null);
-      }
     } else {
       setIsModalOpen(false);
       setPhotoPromptIndex(null);
@@ -387,7 +381,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
             
             {(status === "running" || status === "stopped") && !isSubmitting && (
               <div className="w-full text-center space-y-4">
-                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive" disabled={isSubmitting || photosTakenCount < 2}>
+                  <Button size="lg" className="w-48" onClick={handleStop} variant="destructive" disabled={isSubmitting}>
                     <Square className="mr-2 h-5 w-5" /> Parar Treino
                   </Button>
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
