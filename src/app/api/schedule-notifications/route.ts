@@ -33,29 +33,38 @@ export async function POST(request: NextRequest) {
     const { firestore } = initializeServerApp();
     const now = Date.now();
 
-    // Agendamento da primeira foto
+    // Monta o payload base da mensagem FCM
+    const createPayload = (title: string, body: string, photoIndex: string, tag: string, link: string) => ({
+      token: fcmToken,
+      notification: {
+          title,
+          body,
+      },
+      data: {
+        photoIndex // Use string as per FCM spec
+      },
+      webpush: {
+          notification: {
+              icon: '/icon-192x192.png',
+              tag,
+              renotify: true,
+          },
+          fcm_options: {
+              link
+          }
+      }
+    });
+    
+    // Tarefa para a primeira foto
     const delay1Seconds = getRandomDelayInSeconds(PHOTO_1_INTERVAL_PERCENT.min, PHOTO_1_INTERVAL_PERCENT.max);
     const sendAt1 = Timestamp.fromMillis(now + delay1Seconds * 1000);
-    const payload1 = {
-        token: fcmToken,
-        notification: {
-            title: 'Poli Fit Tracker - Foto 1',
-            body: 'Hora da primeira foto de verificação! Toque para abrir a câmera.',
-        },
-        data: {
-          photoIndex: "0" // Use string as per FCM spec
-        },
-        webpush: {
-            notification: {
-                icon: '/icon-192x192.png',
-                tag: 'photo-request-1',
-                renotify: true,
-            },
-            fcm_options: {
-                link: `/dashboard?photo_prompt=1`
-            }
-        }
-    };
+    const payload1 = createPayload(
+        'Poli Fit Tracker - Foto 1',
+        'Hora da primeira foto de verificação! Toque para abrir a câmera.',
+        '0',
+        'photo-request-1',
+        '/dashboard?photo_prompt=1'
+    );
     const task1: Omit<NotificationTask, 'id'> = {
       userId,
       fcmToken,
@@ -64,29 +73,16 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     };
 
-    // Agendamento da segunda foto
+    // Tarefa para a segunda foto
     const delay2Seconds = getRandomDelayInSeconds(PHOTO_2_INTERVAL_PERCENT.min, PHOTO_2_INTERVAL_PERCENT.max);
     const sendAt2 = Timestamp.fromMillis(now + delay2Seconds * 1000);
-    const payload2 = {
-        token: fcmToken,
-        notification: {
-            title: 'Poli Fit Tracker - Foto 2',
-            body: 'Última verificação! Toque para tirar a segunda foto.',
-        },
-        data: {
-            photoIndex: "1" // Use string as per FCM spec
-        },
-        webpush: {
-            notification: {
-                icon: '/icon-192x192.png',
-                tag: 'photo-request-2',
-                renotify: true,
-            },
-            fcm_options: {
-                link: `/dashboard?photo_prompt=2`
-            }
-        }
-    };
+    const payload2 = createPayload(
+        'Poli Fit Tracker - Foto 2',
+        'Última verificação! Toque para tirar a segunda foto.',
+        '1',
+        'photo-request-2',
+        '/dashboard?photo_prompt=2'
+    );
     const task2: Omit<NotificationTask, 'id'> = {
       userId,
       fcmToken,
@@ -95,7 +91,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     };
 
-    // Salva as duas tarefas no Firestore
+    // Salva as duas tarefas no Firestore em um batch
     const batch = firestore.batch();
     const tasksCollection = firestore.collection('notification_tasks');
     batch.set(tasksCollection.doc(), task1);
