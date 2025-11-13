@@ -7,21 +7,7 @@ import type { NotificationTask } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 // URL da API REST do Firebase Cloud Messaging
-const FCM_API_URL = `https://fcm.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/messages:send`;
-
-/**
- * Função para obter o token de acesso OAuth2 para autenticar na API FCM.
- */
-async function getAccessToken() {
-  // Garante que o app admin está inicializado para obter as credenciais
-  initializeServerApp();
-  const credential = admin.app().credential;
-  if (!credential) {
-      throw new Error("Credencial do Admin não inicializada.");
-  }
-  const accessToken = await (credential as admin.credential.Credential).getAccessToken();
-  return accessToken.access_token;
-}
+const FCM_SEND_URL = 'https://fcm.googleapis.com/fcm/send';
 
 export async function GET(request: Request) {
   // 1. Segurança do endpoint
@@ -30,11 +16,18 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  // 2. Validação da chave do servidor FCM
+  const serverKey = process.env.FCM_SERVER_KEY;
+  if (!serverKey) {
+    console.error('FCM_SERVER_KEY não está definida nas variáveis de ambiente.');
+    return new Response('Configuração do servidor incompleta.', { status: 500 });
+  }
+
   try {
     const { firestore } = initializeServerApp();
     const now = admin.firestore.Timestamp.now();
     
-    // 2. Busca por tarefas pendentes
+    // 3. Busca por tarefas pendentes
     const tasksSnapshot = await firestore.collection('notification_tasks')
       .where('status', '==', 'pending')
       .where('sendAt', '<=', now)
@@ -43,39 +36,42 @@ export async function GET(request: Request) {
     if (tasksSnapshot.empty) {
       return NextResponse.json({ success: true, message: 'Nenhuma notificação para enviar.' });
     }
-
-    const accessToken = await getAccessToken();
+    
     const sentTasksIds: string[] = [];
     const promises: Promise<any>[] = [];
 
-    // 3. Envia as notificações usando a API REST
+    // 4. Envia as notificações usando a API REST
     tasksSnapshot.forEach(doc => {
       const task = doc.data() as Omit<NotificationTask, 'id'>;
       
-      // O `task.payload` já contém a estrutura da mensagem
+      // A API REST legada usa uma estrutura ligeiramente diferente do payload do SDK Admin.
+      // O 'token' vira 'to'.
       const fcmMessage = {
-        message: task.payload,
+        to: task.fcmToken,
+        notification: task.payload.notification,
+        data: task.payload.data,
       };
 
-      const sendPromise = fetch(FCM_API_URL, {
+      const sendPromise = fetch(FCM_SEND_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `key=${serverKey}`,
         },
         body: JSON.stringify(fcmMessage),
       })
       .then(async response => {
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`FCM API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+        const responseBody = await response.json();
+        if (!response.ok || responseBody.failure > 0) {
+          console.error(`Falha ao enviar notificação para ${task.userId}. Resposta:`, responseBody.results);
+          throw new Error(`FCM API Error: ${response.status} - ${JSON.stringify(responseBody)}`);
         }
         console.log('Notificação enviada com sucesso para o usuário:', task.userId);
         sentTasksIds.push(doc.id);
-        return response.json();
+        return responseBody;
       })
       .catch(error => {
-        console.error('Erro ao enviar notificação para o token:', task.fcmToken, error);
+        console.error('Erro no fetch da notificação para o token:', task.fcmToken, error);
         return doc.ref.update({ status: 'error' });
       });
       
@@ -84,7 +80,7 @@ export async function GET(request: Request) {
 
     await Promise.all(promises);
 
-    // 4. Deleta as tarefas enviadas
+    // 5. Deleta as tarefas enviadas com sucesso
     if (sentTasksIds.length > 0) {
       const batch = firestore.batch();
       sentTasksIds.forEach(id => {
