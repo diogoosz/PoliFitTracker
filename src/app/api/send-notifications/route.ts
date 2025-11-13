@@ -37,8 +37,8 @@ export async function GET(request: Request) {
       const task = doc.data() as Omit<NotificationTask, 'id'>;
       
       // CORREÇÃO: O payload da tarefa já é a mensagem completa.
-      // Não precisamos acessar task.payload.notification, etc.
-      // A estrutura da mensagem já está correta em task.payload.
+      // Acessamos o objeto `task.payload` diretamente, pois ele já contém
+      // o token, notification, webpush, etc.
       const message: admin.messaging.Message = task.payload;
 
       const sendPromise = messaging.send(message)
