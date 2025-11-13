@@ -36,12 +36,10 @@ export async function GET(request: Request) {
     tasksSnapshot.forEach(doc => {
       const task = doc.data() as Omit<NotificationTask, 'id'>;
       
-      const message: admin.messaging.Message = {
-          token: task.fcmToken,
-          notification: task.payload.notification,
-          webpush: task.payload.webpush,
-          data: task.payload.data,
-      };
+      // CORREÇÃO: O payload da tarefa já é a mensagem completa.
+      // Não precisamos acessar task.payload.notification, etc.
+      // A estrutura da mensagem já está correta em task.payload.
+      const message: admin.messaging.Message = task.payload;
 
       const sendPromise = messaging.send(message)
         .then(response => {
