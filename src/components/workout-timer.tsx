@@ -12,7 +12,6 @@ import { useAuth } from "@/lib/auth";
 import type { Workout } from "@/lib/types";
 import { isToday } from "date-fns";
 import { IosInstallPrompt } from "./ios-install-prompt";
-import { ToastAction } from "@/components/ui/toast";
 import { useFirestore } from "@/firebase";
 import { useSearchParams } from 'next/navigation';
 
@@ -22,15 +21,10 @@ import { useSearchParams } from 'next/navigation';
 // ====================================================================
 // Duração total do treino em minutos.
 const WORKOUT_DURATION_MINUTES = 1;
-// Primeiro intervalo para foto em minutos (ex: entre 10 e 15 minutos de treino)
-const PHOTO_1_INTERVAL_MINUTES = { min: 0.30, max: 0.55 };
-// Segundo intervalo para foto em minutos (ex: entre 25 e 35 minutos de treino)
-const PHOTO_2_INTERVAL_MINUTES = { min: 0.65, max: 0.85 };
+// ====================================================================
 
 // --- Conversões para segundos (não editar) ---
 const WORKOUT_DURATION_SECONDS = WORKOUT_DURATION_MINUTES * 60;
-const PHOTO_1_INTERVAL_SECONDS = { min: PHOTO_1_INTERVAL_MINUTES.min * 60, max: PHOTO_1_INTERVAL_MINUTES.max * 60 };
-const PHOTO_2_INTERVAL_SECONDS = { min: PHOTO_2_INTERVAL_MINUTES.min * 60, max: PHOTO_2_INTERVAL_MINUTES.max * 60 };
 // ====================================================================
 
 
@@ -88,24 +82,27 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     }
   }, []);
 
-  const checkPhotoPrompts = useCallback(() => {
-    const currentElapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : elapsedSeconds;
-
-    const shouldPrompt = (interval: { min: number, max: number }, photoIndex: 0 | 1) => 
-      currentElapsed >= interval.min &&
-      currentElapsed <= interval.max &&
-      !photos[photoIndex] &&
-      photoPromptIndex === null &&
-      status === 'running';
-
-    if (shouldPrompt(PHOTO_1_INTERVAL_SECONDS, 0)) {
-      setPhotoPromptIndex(0);
-      setIsModalOpen(true);
-    } else if (shouldPrompt(PHOTO_2_INTERVAL_SECONDS, 1)) {
-      setPhotoPromptIndex(1);
-      setIsModalOpen(true);
-    }
-  }, [startTime, elapsedSeconds, photos, photoPromptIndex, status]);
+  const checkAndPromptForPhoto = useCallback(() => {
+      if (status !== 'running' || !startTime || photoPromptIndex !== null) return;
+  
+      const currentElapsed = Math.floor((Date.now() - startTime) / 1000);
+      
+      const PHOTO_1_INTERVAL_SECONDS = { min: WORKOUT_DURATION_SECONDS * 0.30, max: WORKOUT_DURATION_SECONDS * 0.55 };
+      const PHOTO_2_INTERVAL_SECONDS = { min: WORKOUT_DURATION_SECONDS * 0.65, max: WORKOUT_DURATION_SECONDS * 0.85 };
+  
+      const shouldPrompt = (interval: { min: number, max: number }, index: 0 | 1) =>
+          currentElapsed >= interval.min &&
+          currentElapsed <= interval.max &&
+          !photos[index];
+  
+      if (shouldPrompt(PHOTO_1_INTERVAL_SECONDS, 0)) {
+          setPhotoPromptIndex(0);
+          setIsModalOpen(true);
+      } else if (shouldPrompt(PHOTO_2_INTERVAL_SECONDS, 1)) {
+          setPhotoPromptIndex(1);
+          setIsModalOpen(true);
+      }
+  }, [status, startTime, photos, photoPromptIndex, setPhotoPromptIndex, setIsModalOpen]);
 
 
   // This effect handles opening the camera modal when arriving via a notification link.
@@ -142,7 +139,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         setElapsedSeconds(newElapsedSeconds);
         // This check runs every second to see if it's time to open the camera modal
         // when the app is in the foreground.
-        checkPhotoPrompts();
+        checkAndPromptForPhoto();
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -150,7 +147,7 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, startTime, checkPhotoPrompts]);
+  }, [status, startTime, checkAndPromptForPhoto]);
 
   useEffect(() => {
     let resetTimer: NodeJS.Timeout;
@@ -164,20 +161,24 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
   }, [status, resetWorkout, onWorkoutLogged]);
 
   const startWorkoutAndScheduleNotifications = async () => {
-      // 1. Get FCM token (we assume this is handled elsewhere, e.g., in a parent component or context)
-      // For now, we'll retrieve it from localStorage or prompt the user.
-      const fcmToken = localStorage.getItem('fcmToken'); // Example
+      // 1. Get FCM token
+      // This is a simplified example. In a real app, you'd get this from your messaging service setup.
+      const fcmToken = localStorage.getItem('fcmToken');
       if (!fcmToken || !user) {
-          toast({ title: 'Erro', description: 'Não foi possível agendar notificações. Token FCM ausente.' });
-          // Decide if you want to proceed without notifications or stop. For now, we proceed.
+          toast({ title: 'Aviso', description: 'Não foi possível agendar notificações push. O app não irá te notificar se estiver em segundo plano.' });
+          // We proceed without notifications, the local timer will still work.
       } else {
         // 2. Call the API to schedule notifications
         try {
-          await fetch('/api/schedule-notifications', {
+          const response = await fetch('/api/schedule-notifications', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fcmToken, userId: user.id }),
           });
+          const result = await response.json();
+          if (!result.success) {
+            throw new Error(result.error || "Falha desconhecida");
+          }
         } catch (error) {
             console.error("Failed to schedule notifications:", error);
             // Don't block the workout from starting, just log the error.
@@ -297,13 +298,9 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
           newTimestamps[photoPromptIndex] = now;
           return newTimestamps;
       });
-      setIsModalOpen(false);
-      setPhotoPromptIndex(null);
-
-    } else {
-      setIsModalOpen(false);
-      setPhotoPromptIndex(null);
     }
+    setIsModalOpen(false);
+    setPhotoPromptIndex(null);
   };
 
   const photosTakenCount = photos.filter(p => p !== null).length;
@@ -370,7 +367,10 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         
         <PhotoCaptureModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setPhotoPromptIndex(null);
+          }}
           onPhotoTaken={handlePhotoTaken}
         />
         <IosInstallPrompt
@@ -381,5 +381,3 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     </Card>
   );
 }
-
-    

@@ -7,16 +7,17 @@ import type { NotificationTask } from '@/lib/types';
 // ====================================================================
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
 // ====================================================================
-// Primeiro intervalo para foto em minutos (ex: entre 10 e 15 minutos de treino)
-const PHOTO_1_INTERVAL_MINUTES = { min: 0.30, max: 0.55 };
-// Segundo intervalo para foto em minutos (ex: entre 25 e 35 minutos de treino)
-const PHOTO_2_INTERVAL_MINUTES = { min: 0.65, max: 0.85 };
+const WORKOUT_DURATION_MINUTES = 1;
+// Primeiro intervalo para foto em % do tempo total de treino
+const PHOTO_1_INTERVAL_PERCENT = { min: 0.30, max: 0.55 };
+// Segundo intervalo para foto em % do tempo total de treino
+const PHOTO_2_INTERVAL_PERCENT = { min: 0.65, max: 0.85 };
 // ====================================================================
 
-
-function getRandomDelayInSeconds(minMinutes: number, maxMinutes: number): number {
-  const minSeconds = minMinutes * 60;
-  const maxSeconds = maxMinutes * 60;
+function getRandomDelayInSeconds(minPercent: number, maxPercent: number): number {
+  const totalSeconds = WORKOUT_DURATION_MINUTES * 60;
+  const minSeconds = totalSeconds * minPercent;
+  const maxSeconds = totalSeconds * maxPercent;
   return Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds;
 }
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
 
     // Agendamento da primeira foto
-    const delay1Seconds = getRandomDelayInSeconds(PHOTO_1_INTERVAL_MINUTES.min, PHOTO_1_INTERVAL_MINUTES.max);
+    const delay1Seconds = getRandomDelayInSeconds(PHOTO_1_INTERVAL_PERCENT.min, PHOTO_1_INTERVAL_PERCENT.max);
     const sendAt1 = Timestamp.fromMillis(now + delay1Seconds * 1000);
     const payload1 = {
         token: fcmToken,
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
             }
         }
     };
-    const task1: NotificationTask = {
+    const task1: Omit<NotificationTask, 'id'> = {
       userId,
       fcmToken,
       payload: payload1,
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Agendamento da segunda foto
-    const delay2Seconds = getRandomDelayInSeconds(PHOTO_2_INTERVAL_MINUTES.min, PHOTO_2_INTERVAL_MINUTES.max);
+    const delay2Seconds = getRandomDelayInSeconds(PHOTO_2_INTERVAL_PERCENT.min, PHOTO_2_INTERVAL_PERCENT.max);
     const sendAt2 = Timestamp.fromMillis(now + delay2Seconds * 1000);
     const payload2 = {
         token: fcmToken,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
             }
         }
     };
-    const task2: NotificationTask = {
+    const task2: Omit<NotificationTask, 'id'> = {
       userId,
       fcmToken,
       payload: payload2,
@@ -109,7 +110,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
-
-    
-
-    

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     // 3. Send notifications
     tasksSnapshot.forEach(doc => {
-      const task = doc.data() as NotificationTask;
+      const task = doc.data() as Omit<NotificationTask, 'id'>;
       
       const message: admin.messaging.Message = {
           token: task.fcmToken,
@@ -77,5 +77,3 @@ export async function GET(request: Request) {
     return new Response(errorMessage, { status: 500 });
   }
 }
-
-    
