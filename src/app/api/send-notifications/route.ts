@@ -13,8 +13,13 @@ const FCM_API_URL = `https://fcm.googleapis.com/v1/projects/${process.env.NEXT_P
  * Função para obter o token de acesso OAuth2 para autenticar na API FCM.
  */
 async function getAccessToken() {
-  const { credential } = admin.app();
-  const accessToken = await credential.getAccessToken();
+  // Garante que o app admin está inicializado para obter as credenciais
+  initializeServerApp();
+  const credential = admin.app().credential;
+  if (!credential) {
+      throw new Error("Credencial do Admin não inicializada.");
+  }
+  const accessToken = await (credential as admin.credential.Credential).getAccessToken();
   return accessToken.access_token;
 }
 
@@ -26,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { firestore, app } = initializeServerApp();
+    const { firestore } = initializeServerApp();
     const now = admin.firestore.Timestamp.now();
     
     // 2. Busca por tarefas pendentes
