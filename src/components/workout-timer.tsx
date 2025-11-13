@@ -161,31 +161,22 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
     return () => clearTimeout(resetTimer);
   }, [status, resetWorkout, onWorkoutLogged]);
 
-  const startWorkoutAndScheduleNotifications = async () => {
-      if (!user) return;
-      
-      const fcmToken = await getFCMToken();
-      
-      if (!fcmToken) {
-          toast({ title: 'Aviso', description: 'Permissão de notificação negada. O app não irá te notificar se estiver em segundo plano.' });
-          // Proceed without notifications, the local timer will still work.
-      } else {
-        try {
-          const response = await fetch('/api/schedule-notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fcmToken, userId: user.id }),
-          });
-          const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.error || "Falha desconhecida");
-          }
-        } catch (error) {
-            console.error("Failed to schedule notifications:", error);
-            // Don't block the workout from starting, just log the error and notify the user.
-             toast({ title: 'Aviso', description: 'Não foi possível agendar as notificações push no servidor.' });
-        }
+  const scheduleNotifications = async (fcmToken: string) => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/schedule-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fcmToken, userId: user.id }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || "Falha desconhecida");
       }
+    } catch (error) {
+      console.error("Failed to schedule notifications:", error);
+      toast({ title: 'Aviso', description: 'Não foi possível agendar as notificações push no servidor.' });
+    }
   };
 
 
@@ -199,10 +190,18 @@ export function WorkoutTimer({ onWorkoutLogged, userWorkouts }: WorkoutTimerProp
         return;
     }
 
-    // Schedule notifications first. This will trigger the permission prompt if needed.
-    await startWorkoutAndScheduleNotifications();
+    // 1. Get permission and token FIRST.
+    const fcmToken = await getFCMToken();
+
+    // 2. Handle notification scheduling
+    if (fcmToken) {
+      await scheduleNotifications(fcmToken);
+    } else {
+      // Permission was denied or is not available
+      toast({ title: 'Aviso', description: 'Permissão de notificação negada. O app não irá te notificar se estiver em segundo plano.' });
+    }
     
-    // After attempting to schedule, start the timer.
+    // 3. Now, start the timer regardless of notification status.
     const now = new Date();
     setStatus("running");
     setStartTime(now.getTime());

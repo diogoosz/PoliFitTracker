@@ -52,6 +52,8 @@ export async function getFCMToken(): Promise<string | null> {
     if (currentToken) {
       return currentToken;
     } else {
+      // Isso pode acontecer se a permissão foi concedida, mas o token ainda não foi gerado.
+      // O pedido de permissão acima geralmente cuida disso, mas é um fallback.
       console.log('No registration token available. Request permission to generate one.');
       return null;
     }
