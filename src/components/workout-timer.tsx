@@ -19,11 +19,11 @@ import { useFirestore } from "@/firebase";
 // CONFIGURAÇÃO CENTRALIZADA DO TREINO
 // =================================e===================================
 // Duração total do treino em minutos.
-const WORKOUT_DURATION_MINUTES = 40;
+const WORKOUT_DURATION_MINUTES = 1;
 // Primeiro intervalo para foto em minutos (entre 1 e 20).
-const PHOTO_1_INTERVAL_MINUTES = { min: 5, max: 20 };
+const PHOTO_1_INTERVAL_MINUTES = { min: 0.30, max: 0.55 };
 // Segundo intervalo para foto em minutos (entre 20 e 39).
-const PHOTO_2_INTERVAL_MINUTES = { min: 25, max: 39 };
+const PHOTO_2_INTERVAL_MINUTES = { min: 0.65, max: 0.85 };
 
 // --- Conversões para segundos (não editar) ---
 const WORKOUT_DURATION_SECONDS = WORKOUT_DURATION_MINUTES * 60;
